@@ -1,21 +1,11 @@
 import type { NextConfig } from "next";
 import type { Configuration } from "webpack";
-import path from "path"; // Needed for alias path resolution
-
-// Optional: PWA support (disabled for now)
-// const withPWA = require("next-pwa")({
-//   dest: "public",
-//   register: true,
-//   skipWaiting: true,
-//   disable: process.env.NODE_ENV === "development",
-// });
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
-    appDir: true,
+    // Removed 'appDir' to avoid warnings in newer Next.js versions.
   } as any,
-
   images: {
     remotePatterns: [
       {
@@ -24,8 +14,8 @@ const nextConfig: NextConfig = {
         pathname: "/dlf1ffdww/video/upload/**",
       },
     ],
+    unoptimized: true, // Disable image optimization to avoid sharp issues
   },
-
   async rewrites() {
     return [
       {
@@ -37,17 +27,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-
   webpack(config: Configuration, { isServer }: { isServer: boolean }) {
     if (config.resolve) {
       config.resolve.alias = {
         ...(config.resolve.alias || {}),
-        "@": path.join(__dirname, "src"),
+        "@": require("path").join(__dirname, "src"),
       };
     }
     return config;
   },
 };
 
-// module.exports = withPWA(nextConfig);
 module.exports = nextConfig;
