@@ -19,7 +19,6 @@ export interface DisasterEvent {
 const unifiedDisasters = async (): Promise<DisasterEvent[]> => {
   try {
     const EXCEL_FILE_PATH = path.join(process.cwd(), "src/dataSources/Datasets.xlsx");
-    console.log("Reading Excel file from:", EXCEL_FILE_PATH); // Debug log
     const workbook = XLSX.readFile(EXCEL_FILE_PATH);
     const sheet = workbook.Sheets["SUM-SHEET"];
 
@@ -29,7 +28,6 @@ const unifiedDisasters = async (): Promise<DisasterEvent[]> => {
     }
 
     const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-    console.log("Raw sheet data:", data); // Debug log
 
     const disasterEvents: DisasterEvent[] = data.slice(1).map((row: any) => {
       const [
@@ -66,10 +64,8 @@ const unifiedDisasters = async (): Promise<DisasterEvent[]> => {
       event.disaster_type,
     );
 
-    console.log("Processed disaster events:", disasterEvents); // Debug log
     return disasterEvents;
   } catch (error) {
-    console.error("Error reading SUM-SHEET:", error);
     return [];
   }
 };
@@ -83,7 +79,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const disasterEvents = await unifiedDisasters();
     res.status(200).json(disasterEvents);
   } catch (error) {
-    console.error("API error:", error);
     res.status(500).json({ error: "Failed to fetch disaster data" });
   }
 }

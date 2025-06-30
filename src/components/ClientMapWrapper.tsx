@@ -1,26 +1,46 @@
-// src/components/ClientMapWrapper.tsx
-"use client"; // This directive marks this file as a Client Component
+"use client";
 
+import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import React from "react";
+import { DisasterEvent } from "@/types";
 
-// Define the props type for the Map component (if it has specific props)
 interface MapProps {
-  // Add any props that the Map component expects, e.g.:
-  // data?: DisasterEvent[];
+  data: DisasterEvent[];
 }
 
-// Dynamically import the Map component with proper typing
-const DynamicMapComponent = dynamic<MapProps>(
-  () => import("./Map").then((mod) => mod.default), // Ensure the default export is used
-  {
-    loading: () => <p>Loading map...</p>,
-    ssr: false, // Disable server-side rendering
-  },
-);
+interface ClientMapWrapperProps {
+  initialData: DisasterEvent[];
+}
 
-const ClientMapWrapper: React.FC = () => {
-  return <DynamicMapComponent />;
+const MapComponent = dynamic<MapProps>(() => import("./Map/index").then((mod) => mod.default), {
+  ssr: false,
+  loading: () => <p>Loading map...</p>,
+});
+
+const ClientMapWrapper: React.FC<ClientMapWrapperProps> = ({ initialData }) => {
+  const [disasterData] = useState<DisasterEvent[]>(initialData);
+
+  useEffect(() => {
+    console.log("✅ Loaded initial disaster data:", disasterData);
+  }, [disasterData]);
+
+  return (
+    <div style={{ height: "100vh", width: "100vw", position: "relative" }}>
+      <img
+        src="/icons/logoMichael.png"
+        alt="Logo"
+        style={{
+          position: "absolute",
+          top: 16,
+          left: 16,
+          zIndex: 1000,
+          width: "50px",
+          height: "auto",
+        }}
+      />
+      <MapComponent data={disasterData} />
+    </div>
+  );
 };
 
 export default ClientMapWrapper;

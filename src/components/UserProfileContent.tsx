@@ -1,19 +1,13 @@
-"use client"; // This component is a client component
+"use client";
 
 import React, { useState } from "react";
 
-interface UserProfileContentProps {
-  // onClose prop is no longer directly used here, as it"s passed to the wrapper panel
-}
-
-const UserProfileContent: React.FC<UserProfileContentProps> = () => {
-  // Mock User Data
+const UserProfileContent: React.FC = () => {
   const [userName, setUserName] = useState("Sapiens Ndatabaye");
   const [userBio, setUserBio] = useState("Pioneering disaster intelligence with cutting-edge map technology.");
   const [disasterScore, setDisasterScore] = useState(92);
   const [language, setLanguage] = useState("English");
   const [email, setEmail] = useState("sapiens.ndatabaye@example.com");
-
   const [isEditing, setIsEditing] = useState(false);
 
   const handleSave = () => {
@@ -25,80 +19,67 @@ const UserProfileContent: React.FC<UserProfileContentProps> = () => {
     setIsEditing(false);
   };
 
-  // Inline Styles for Consistency
   const inputStyle: React.CSSProperties = {
     padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #444",
-    backgroundColor: "#333",
-    color: "#E0E0E0",
+    borderRadius: "4px",
+    border: "1px solid #CED4DA",
+    backgroundColor: "#FFFFFF",
+    color: "#333333",
     fontSize: "1em",
     outline: "none",
-    width: "calc(100% - 20px)", // Adjust for padding
+    width: "100%",
     boxSizing: "border-box",
-    fontFamily: "\"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+    fontFamily: "'Helvetica Neue', Arial, sans-serif",
+    transition: "border-color 0.2s ease",
   };
 
   const buttonStyle: React.CSSProperties = {
-    padding: "12px 25px",
-    borderRadius: "8px",
+    padding: "8px 16px",
+    borderRadius: "4px",
     border: "none",
-    backgroundColor: "#007bff",
-    color: "white",
+    backgroundColor: "#0077B6",
+    color: "#FFFFFF",
     cursor: "pointer",
     fontWeight: "600",
-    fontSize: "1em",
-    transition: "background-color 0.2s ease-in-out, transform 0.1s ease-in-out",
-    flexShrink: 0,
-    fontFamily: "\"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+    fontSize: "0.95em",
+    transition: "background-color 0.3s ease, transform 0.2s ease",
+    fontFamily: "'Helvetica Neue', Arial, sans-serif",
   };
 
   const sectionHeaderStyle: React.CSSProperties = {
-    fontSize: "1.3em",
-    color: "#88ccff",
+    fontSize: "1.2em",
+    color: "#0077B6",
     marginBottom: "10px",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
+    borderBottom: "1px solid #E0E0E0",
     paddingBottom: "5px",
     fontWeight: "600",
+    fontFamily: "'Helvetica Neue', Arial, sans-serif",
   };
 
   const detailTextStyle: React.CSSProperties = {
     fontSize: "1em",
     lineHeight: "1.6",
-    color: "#A0A0A0",
-    fontFamily: "\"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+    color: "#6B7280",
+    fontFamily: "'Helvetica Neue', Arial, sans-serif",
   };
 
   const checkboxStyle: React.CSSProperties = {
-      marginRight: "10px",
-      width: "18px",
-      height: "18px",
-      cursor: "pointer",
-      accentColor: "#007bff",
+    marginRight: "10px",
+    width: "18px",
+    height: "18px",
+    cursor: "pointer",
+    accentColor: "#0077B6",
   };
 
   return (
-    <div style={{ paddingBottom: "20px" }}> {/* Internal padding for content */}
-      {/* Profile Header */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "25px",
-        borderBottom: "1px solid #333",
-        paddingBottom: "20px",
-        marginBottom: "20px", // Added margin bottom for spacing
-      }}>
+    <div style={{ padding: "20px", height: "calc(100% - 60px)", overflowY: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "20px", borderBottom: "1px solid #E0E0E0", paddingBottom: "20px", marginBottom: "20px" }}>
         <img
           src="/user-avatar.png"
-          alt="App Logo"
-          style={{
-            width: "90px",
-            height: "90px",
-            borderRadius: "50%",
-            objectFit: "cover",
-            border: "3px solid #007bff",
-            boxShadow: "0 0 15px rgba(0,123,255,0.5)",
-          }}
+          alt="User Avatar"
+          style={{ width: "80px", height: "80px", borderRadius: "50%", objectFit: "cover", border: "2px solid #0077B6", boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)", transition: "transform 0.3s ease" }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
         />
         <div style={{ flexGrow: 1 }}>
           {isEditing ? (
@@ -107,15 +88,16 @@ const UserProfileContent: React.FC<UserProfileContentProps> = () => {
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
               style={inputStyle}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#0077B6")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#CED4DA")}
             />
           ) : (
-            <h1 style={{ margin: "0", fontSize: "2em", color: "#88ccff", fontWeight: "600" }}>{userName}</h1>
+            <h1 style={{ margin: 0, fontSize: "1.8em", color: "#333333", fontWeight: "600", fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>{userName}</h1>
           )}
-          <p style={{ margin: "5px 0 0 0", fontSize: "0.95em", color: "#A0A0A0" }}>{email}</p>
+          <p style={{ margin: "5px 0 0 0", fontSize: "0.9em", color: "#6B7280", fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>{email}</p>
         </div>
       </div>
 
-      {/* Profile Details & About */}
       <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
         <div>
           <h3 style={sectionHeaderStyle}>About</h3>
@@ -124,7 +106,9 @@ const UserProfileContent: React.FC<UserProfileContentProps> = () => {
               value={userBio}
               onChange={(e) => setUserBio(e.target.value)}
               rows={3}
-              style={{ ...inputStyle, width: "calc(100% - 24px)", minHeight: "60px" }}
+              style={{ ...inputStyle, width: "100%", minHeight: "60px" }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#0077B6")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#CED4DA")}
             />
           ) : (
             <p style={detailTextStyle}>{userBio}</p>
@@ -134,7 +118,7 @@ const UserProfileContent: React.FC<UserProfileContentProps> = () => {
         <div>
           <h3 style={sectionHeaderStyle}>Disaster Preparedness</h3>
           <p style={detailTextStyle}>
-            Disaster Insurance Score: <strong style={{ color: "#007bff" }}>{disasterScore}</strong> / 100
+            Disaster Insurance Score: <strong style={{ color: "#0077B6" }}>{disasterScore}</strong> / 100
           </p>
         </div>
 
@@ -143,7 +127,13 @@ const UserProfileContent: React.FC<UserProfileContentProps> = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={detailTextStyle}>Language:</span>
             {isEditing ? (
-              <select value={language} onChange={(e) => setLanguage(e.target.value)} style={inputStyle}>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                style={inputStyle}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#0077B6")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#CED4DA")}
+              >
                 <option value="English">English</option>
                 <option value="French">Français</option>
                 <option value="Spanish">Español</option>
@@ -173,19 +163,33 @@ const UserProfileContent: React.FC<UserProfileContentProps> = () => {
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div style={{ display: "flex", justifyContent: isEditing ? "space-between" : "flex-end", marginTop: "25px", gap: "15px" }}>
+      <div style={{ display: "flex", justifyContent: isEditing ? "space-between" : "flex-end", marginTop: "25px", gap: "10px" }}>
         {isEditing ? (
           <>
-            <button onClick={handleCancel} style={{ ...buttonStyle, backgroundColor: "#555" }}>
+            <button
+              onClick={handleCancel}
+              style={{ ...buttonStyle, backgroundColor: "#6B7280" }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#4B5563"; e.currentTarget.style.transform = "scale(1.05)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#6B7280"; e.currentTarget.style.transform = "scale(1)"; }}
+            >
               Cancel
             </button>
-            <button onClick={handleSave} style={{ ...buttonStyle, backgroundColor: "#007bff" }}>
+            <button
+              onClick={handleSave}
+              style={buttonStyle}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#005A8A"; e.currentTarget.style.transform = "scale(1.05)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#0077B6"; e.currentTarget.style.transform = "scale(1)"; }}
+            >
               Save Changes
             </button>
           </>
         ) : (
-          <button onClick={() => setIsEditing(true)} style={buttonStyle}>
+          <button
+            onClick={() => setIsEditing(true)}
+            style={buttonStyle}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#005A8A"; e.currentTarget.style.transform = "scale(1.05)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#0077B6"; e.currentTarget.style.transform = "scale(1)"; }}
+          >
             Edit Profile
           </button>
         )}

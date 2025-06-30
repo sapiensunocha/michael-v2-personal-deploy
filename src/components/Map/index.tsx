@@ -1,159 +1,333 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+"use client";
+
+import * as L from "leaflet";
+import * as React from "react";
+import { Circle } from "react-leaflet";
+import { useMap, useMapEvents } from "react-leaflet";
+import { latLng, divIcon } from "leaflet";
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import {
   MapContainer,
   TileLayer,
   Marker,
   Popup,
-  Tooltip,
-  Circle,
-  useMapEvents,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import { FaSearch, FaFilter, FaChevronDown, FaBell, FaUser, FaEnvelope, FaEllipsisH } from "react-icons/fa";
+import { FaSearch, FaBell, FaUser, FaEnvelope } from "react-icons/fa";
 import Image from "next/image";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
 import { setSelectedLocation } from "@/redux/slice/location";
-import { unifiedDisasters, DisasterEvent } from "@/dataSources/unifiedDisasters";
 import RightSidePanel from "../RightSidePanel";
 import UserProfileContent from "../UserProfileContent";
 import NotificationsPanel from "../NotificationsPanel";
 import MessagesPanel from "../MessagesPanel";
+import styled from "styled-components";
+import { DisasterEvent } from "@/types";
+import debounce from "lodash/debounce";
+import TooltipComponent from "@/components/Map/TooltipComponent";
 
 const OCHA_COLORS = {
-  blue: "#005A8A",
-  lightBlue: "#00A5CF",
-  orange: "#F28C38",
-  red: "#D1342F",
-  green: "#00994F",
-  yellow: "#FFC107",
-  gray: "#4A4A4A",
-  lightGray: "#E0E0E0",
+  blue: { 500: "#005A8A", 400: "#0077B6", 300: "#00A5CF" },
+  red: { 500: "#D1342F", 400: "#D95C5A", 300: "#E18584" },
+  green: { 500: "#00994F", 400: "#33AD73", 300: "#66C297" },
+  yellow: { 500: "#FFC107", 400: "#FFCD38", 300: "#FFD969" },
+  gray: { 500: "#4A4A4A", 400: "#6B7280", 300: "#9CA3AF", 100: "#E0E0E0" },
   white: "#FFFFFF",
 };
 
-const markerAnimationAndHoverCss = `
-  @keyframes pulse-marker {
-    0% { transform: scale(0.95); opacity: 0.8; }
-    50% { transform: scale(1.15); opacity: 1; }
-    100% { transform: scale(0.95); opacity: 0.8; }
-  }
-
-  .leaflet-marker-icon.active-disaster {
-    animation: pulse-marker 1.5s infinite ease-in-out;
-  }
-
-  .custom-tooltip {
-    background-color: rgba(255, 255, 255, 0.95);
-    color: ${OCHA_COLORS.gray};
-    border: 1px solid ${OCHA_COLORS.blue};
-    border-radius: 6px;
-    padding: 12px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-    font-size: 0.9rem;
-    line-height: 1.5;
-    max-width: 220px;
-    font-family: Arial, sans-serif;
-    opacity: 0;
-    transform: translateY(8px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-
-  .leaflet-tooltip-pane .custom-tooltip {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .notification-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background-color: ${OCHA_COLORS.red};
-    color: white;
-    border-radius: 50%;
-    padding: 2px 6px;
-    font-size: 0.7rem;
-  }
-`;
-
-if (typeof document !== "undefined" && !document.getElementById("marker-animation-style")) {
-  const style = document.createElement("style");
-  style.id = "marker-animation-style";
-  style.innerHTML = markerAnimationAndHoverCss;
-  document.head.appendChild(style);
-}
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "/leaflet/images/marker-icon-2x.png",
-  iconUrl: "/leaflet/images/marker-icon.png",
-  shadowUrl: "/leaflet/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-interface DisasterIconConfig {
-  [key: string]: { icon: string; color: string; size: number };
-}
-
-const disasterIconConfig: DisasterIconConfig = {
-  earthquake: { icon: "/earthquake.png", color: OCHA_COLORS.red, size: 28 },
-  "tropical cyclone": { icon: "/cyclone1.png", color: OCHA_COLORS.blue, size: 28 },
-  wildfire: { icon: "/wildfire.png", color: OCHA_COLORS.orange, size: 28 },
-  drought: { icon: "/drought.png", color: OCHA_COLORS.yellow, size: 28 },
-  flood: { icon: "/flood.png", color: OCHA_COLORS.lightBlue, size: 28 },
-  "explosions/remote violence": { icon: "/explosion.png", color: OCHA_COLORS.red, size: 28 },
-  protests: { icon: "/protest.png", color: OCHA_COLORS.green, size: 28 },
-  "strategic developments": { icon: "/strat1.png", color: OCHA_COLORS.blue, size: 28 },
-  riots: { icon: "/riot.png", color: OCHA_COLORS.orange, size: 28 },
-  "violence against civilians": { icon: "/violence.png", color: OCHA_COLORS.red, size: 28 },
-  battles: { icon: "/battle.png", color: OCHA_COLORS.gray, size: 28 },
+const SPACING = {
+  xs: "4px",
+  sm: "8px",
+  md: "16px",
+  lg: "24px",
+  xl: "32px",
 };
 
-const createCustomIcon = (iconUrl: string, color: string, size: number, classNameSuffix: string) => {
-  return L.divIcon({
-    className: `custom-marker-icon-container ${classNameSuffix}`,
-    html: `
-      <div style="
-        width: ${size}px;
-        height: ${size}px;
-        background: url('${iconUrl}') no-repeat center center;
-        background-size: contain;
-        border: 2px solid ${color};
-        border-radius: 50%;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        position: relative;
-      ">
-      </div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
-  });
+const TYPOGRAPHY = {
+  h1: { fontSize: "1.5rem", fontWeight: 600, lineHeight: 1.4 },
+  body: { fontSize: "0.875rem", fontWeight: 400, lineHeight: 1.6 },
+  small: { fontSize: "0.75rem", fontWeight: 400, lineHeight: 1.5 },
 };
 
-const getDisasterIcon = (disasterType: string, magnitude: number) => {
-  const typeKey = disasterType.toLowerCase();
-  const config = disasterIconConfig[typeKey] || disasterIconConfig.earthquake;
-  let size = config.size;
-  if (typeKey === "earthquake") {
-    size = magnitude >= 6.0 ? 36 : magnitude >= 4.5 ? 32 : 28;
-  } else if (typeKey === "tropical cyclone") {
-    size = magnitude >= 7.0 ? 36 : magnitude >= 6.0 ? 32 : 28;
-  }
-  return createCustomIcon(config.icon, config.color, size, typeKey.replace(/[^a-z0-9]/g, "-"));
-};
-
-const SIDEBAR_WIDTH_OPEN = "400px";
+const SIDEBAR_WIDTH_OPEN = "360px";
 const SIDEBAR_WIDTH_CLOSED = "0px";
 const SIDEBAR_TRANSITION_DURATION = "0.3s";
 
-type FilterType = "all" | "earthquake" | "tropical cyclone" | "wildfire" | "drought" | "flood" |
-  "explosions/remote violence" | "protests" | "strategic developments" | "riots" |
-  "violence against civilians" | "battles";
+const SearchInput = styled.input`
+  flex-grow: 1;
+  padding: ${SPACING.sm} ${SPACING.md} ${SPACING.sm} 40px;
+  border-radius: 24px;
+  border: 1px solid ${OCHA_COLORS.gray[100]};
+  background-color: ${OCHA_COLORS.white};
+  color: ${OCHA_COLORS.gray[500]};
+  font-size: ${TYPOGRAPHY.body.fontSize};
+  outline: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s, border-color 0.2s;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  &:focus {
+    border-color: ${OCHA_COLORS.blue[400]};
+    box-shadow: 0 0 0 3px ${OCHA_COLORS.blue[300]}33;
+  }
+`;
+
+const IconButton = styled.button`
+  padding: ${SPACING.sm};
+  background-color: ${OCHA_COLORS.white};
+  color: ${OCHA_COLORS.blue[500]};
+  border: 1px solid ${OCHA_COLORS.gray[100]};
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  width: 40px;
+  height: 40px;
+  transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
+  min-width: 48px;
+  min-height: 48px;
+
+  &:hover {
+    background-color: ${OCHA_COLORS.gray[100]};
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+`;
+
+const NotificationBadge = styled.span`
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: ${OCHA_COLORS.red[500]};
+  color: ${OCHA_COLORS.white};
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: ${TYPOGRAPHY.small.fontSize};
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+`;
+
+const LoadingSpinner = styled.div`
+  position: absolute;
+  right: ${SPACING.md};
+  top: 50%;
+  transform: translateY(-50%);
+  border: 2px solid ${OCHA_COLORS.gray[100]};
+  border-top: 2px solid ${OCHA_COLORS.blue[500]};
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
+const MapSpinner = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3000;
+  background: ${OCHA_COLORS.white};
+  padding: ${SPACING.lg};
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+`;
+
+const MapSpinnerInner = styled.div`
+  border: 4px solid ${OCHA_COLORS.gray[100]};
+  border-top: 4px solid ${OCHA_COLORS.blue[500]};
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+`;
+
+const ErrorAlert = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${SPACING.sm};
+  color: ${OCHA_COLORS.red[500]};
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+`;
+
+const ErrorCloseButton = styled.button`
+  padding: ${SPACING.xs} ${SPACING.sm};
+  border: 1px solid ${OCHA_COLORS.gray[100]};
+  border-radius: 4px;
+  background: ${OCHA_COLORS.blue[500]};
+  color: ${OCHA_COLORS.white};
+  cursor: pointer;
+  font-size: ${TYPOGRAPHY.body.fontSize};
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: ${OCHA_COLORS.blue[400]};
+  }
+`;
+
+const SearchResults = styled.div<{ isvisible: boolean }>`
+  position: absolute;
+  top: calc(${SPACING.md} + 48px);
+  left: ${SPACING.md};
+  right: ${SPACING.md};
+  background: ${OCHA_COLORS.white};
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1500;
+  display: ${({ isvisible }) => (isvisible ? "block" : "none")};
+`;
+
+const ResultItem = styled.div`
+  padding: ${SPACING.sm};
+  cursor: pointer;
+  font-family: "Inter", sans-serif;
+  font-size: ${TYPOGRAPHY.body.fontSize};
+  color: ${OCHA_COLORS.gray[500]};
+
+  &:hover {
+    background-color: ${OCHA_COLORS.gray[100]};
+  }
+`;
+
+const PanelContainer = styled.div`
+  position: absolute;
+  bottom: ${SPACING.md};
+  left: ${SPACING.md};
+  width: 300px;
+  height: 300px;
+  background-color: ${OCHA_COLORS.white};
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: ${SPACING.md};
+  display: flex;
+  flex-direction: column;
+  gap: ${SPACING.sm};
+  z-index: 1000;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: ${OCHA_COLORS.gray[500]};
+  overflow-y: auto;
+`;
+
+const SectionHeader = styled.h4`
+  margin: 0;
+  font-size: 1.1rem;
+  fontWeight: 600;
+  color: ${OCHA_COLORS.blue[500]};
+  border-bottom: 1px solid ${OCHA_COLORS.gray[100]};
+  padding-bottom: ${SPACING.sm};
+`;
+
+const ControlGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${SPACING.sm};
+`;
+
+const Label = styled.label`
+  display: flex;
+  align-items: center;
+  gap: ${SPACING.sm};
+  font-size: ${TYPOGRAPHY.body.fontSize};
+  cursor: pointer;
+`;
+
+const ToggleSwitch = styled.label`
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 24px;
+`;
+
+const Slider = styled.span<{ checked: boolean }>`
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: ${props => props.checked ? OCHA_COLORS.green[500] : OCHA_COLORS.gray[300]};
+  transition: 0.4s;
+  border-radius: 24px;
+
+  &:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+    transform: ${props => props.checked ? "translateX(16px)" : "translateX(0)"};
+  }
+`;
+
+const CheckboxInput = styled.input.attrs({ type: "checkbox" })`
+  opacity: 0;
+  width: 0;
+  height: 0;
+`;
+
+const SliderContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${SPACING.sm};
+`;
+
+const RangeInput = styled.input.attrs({ type: "range" })`
+  flex-grow: 1;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 8px;
+  background: ${OCHA_COLORS.gray[100]};
+  border-radius: 5px;
+  outline: none;
+  opacity: 0.7;
+  transition: opacity .2s;
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: ${OCHA_COLORS.blue[500]};
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid ${OCHA_COLORS.white};
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+`;
+
+const LegendItem = styled.div<{ selected: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: ${SPACING.sm};
+  cursor: pointer;
+  padding: ${SPACING.sm} ${SPACING.md};
+  border-radius: 8px;
+  background-color: ${props => props.selected ? OCHA_COLORS.gray[100] : "transparent"};
+  font-weight: ${props => props.selected ? "600" : "400"};
+  transition: background-color 0.2s, font-weight 0.2s;
+
+  &:hover {
+    background-color: ${OCHA_COLORS.gray[100]};
+  }
+`;
 
 interface SelectedLocation {
   lat: number;
@@ -161,27 +335,95 @@ interface SelectedLocation {
   address: string;
 }
 
-const MapComponent: React.FC = () => {
+interface MapProps {
+  data: DisasterEvent[];
+}
+
+const MapComponent: React.FC<MapProps> = ({ data }) => {
   const dispatch = useDispatch<AppDispatch>();
   const selectedLocation = useSelector((state: RootState) => state.location.selectedLocation) as SelectedLocation | null;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [activePanel, setActivePanel] = useState<"profile" | "notifications" | "messages" | null>(null);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-
-  const [initialMapCenter, setInitialMapCenter] = useState<[number, number]>([31.5, 34.5]);
-  const [userCurrentLocation, setUserCurrentLocation] = useState<L.LatLngExpression | null>(null);
+  const [initialMapCenter, setInitialMapCenter] = useState<[number, number]>([37.7749, -122.4194]);
+  const [userCurrentLocation, setUserCurrentLocation] = useState<any | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [disasterData, setDisasterData] = useState<DisasterEvent[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<SelectedLocation[]>([]);
+  const [redPointIcon, setRedPointIcon] = useState<any>(null);
+  const [selectedEvent, setSelectedEvent] = useState<DisasterEvent | null>(null);
+  const [isExtendedCoverage, setIsExtendedCoverage] = useState(true);
+  const [inundationProbability, setInundationProbability] = useState(50);
+  const [selectedDisasterType, setSelectedDisasterType] = useState<string | null>(null);
 
   const mapRef = useRef<L.Map | null>(null);
-  const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null);
-  const [isMapReady, setIsMapReady] = useState(false);
 
-  const [disasterData, setDisasterData] = useState<DisasterEvent[]>([]);
+  useEffect(() => {
+    console.log("🔍 mapRef.current on mount:", mapRef.current);
+  }, []);
 
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+  useEffect(() => {
+    if (mapRef.current) {
+      console.log("✅ MAP CENTER ON LOAD:", mapRef.current.getCenter());
+      console.log("✅ MAP ZOOM ON LOAD:", mapRef.current.getZoom());
+    } else {
+      console.log("❌ mapRef.current is null on load");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const onLoad = () => {
+      console.log("🟢 Map loaded event fired");
+      console.log("Map center at load:", mapRef.current?.getCenter());
+      console.log("Map zoom at load:", mapRef.current?.getZoom());
+    };
+
+    mapRef.current.on("load", onLoad);
+
+    return () => {
+      mapRef.current?.off("load", onLoad);
+    };
+  }, [mapRef.current]);
+
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  useEffect(() => {
+    if (L.Icon.Default.prototype) {
+      delete (L.Icon.Default as any).prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: "/leaflet/images/marker-icon-2x.png",
+        iconUrl: "/leaflet/images/marker-icon.png",
+        shadowUrl: "/leaflet/images/marker-shadow.png",
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41],
+      });
+    }
+
+    setRedPointIcon(new L.Icon.Default());
+  }, []);
+
+  useEffect(() => {
+    if (!mapboxToken) {
+      setErrorMessage("Mapbox token is missing. Please check your environment configuration.");
+    }
+  }, [mapboxToken]);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -190,98 +432,194 @@ const MapComponent: React.FC = () => {
           const { latitude, longitude } = position.coords;
           setInitialMapCenter([latitude, longitude]);
           setUserCurrentLocation([latitude, longitude]);
+          if (mapRef.current && mapRef.current.setView) {
+            mapRef.current.setView([latitude, longitude], 13);
+          }
         },
         () => {
-          alert("Could not retrieve your location. Defaulting to Middle East.");
+          setErrorMessage("Could not retrieve your location. Defaulting to San Francisco.");
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
       );
     }
+    if (mapRef.current) {
+      console.log("MAP CENTER ON LOAD:", mapRef.current.getCenter());
+      console.log("MAP ZOOM ON LOAD:", mapRef.current.getZoom());
+    }
   }, []);
 
   useEffect(() => {
-    const fetchDisasterData = async () => {
+    const fetchData = async () => {
+      setIsLoading(true);
       try {
-        const data = await unifiedDisasters();
-        if (data.length < 20) {
-          const mockData: DisasterEvent[] = [];
-          const types = Object.keys(disasterIconConfig);
-          for (let i = 0; i < 20; i++) {
-            const type = types[Math.floor(Math.random() * types.length)];
-            mockData.push({
-              id: `mock-${i}`,
-              longitude: 34.5 + (Math.random() - 0.5) * 5,
-              latitude: 31.5 + (Math.random() - 0.5) * 5,
-              place: `${type} Area ${i}`,
-              depth: Math.random() * 50,
-              magnitude: Math.random() * 8,
-              time: Date.now() - Math.random() * 24 * 60 * 60 * 1000,
-              tsunami: 0,
-              url: "#",
-              detailUrl: "#",
-              disaster_type: type,
-            });
-          }
-          setDisasterData(mockData);
-        } else {
-          setDisasterData(data);
-        }
+        const response = await fetch("/api/disaster-data/events");
+        if (!response.ok) throw new Error("Failed to fetch disaster data");
+        const fetchedData: DisasterEvent[] = await response.json();
+        setDisasterData(fetchedData);
+        setIsLoading(false);
       } catch (error) {
-        console.error("Failed to fetch disaster data:", error);
+        setErrorMessage("Failed to load disaster data. Using fallback data.");
+        setDisasterData(data);
+        setIsLoading(false);
       }
     };
-
-    fetchDisasterData();
-    const intervalId = setInterval(fetchDisasterData, 300000);
-    return () => clearInterval(intervalId);
-  }, []);
+    fetchData();
+  }, [data]);
 
   const MapEventsHandler: React.FC = () => {
     const map = useMapEvents({
-      click: async (e) => {
+      click: async (e: any) => {
         const { lat, lng } = e.latlng;
-        // TODO: Implement reverse geocoding with Nominatim API
-        const address = "Sample Address";
-        dispatch(setSelectedLocation({ lat, lon: lng, address }));
+        setSelectedEvent(null);
+        if (!mapboxToken) {
+          setErrorMessage("Mapbox token is missing. Address lookup is disabled.");
+          return;
+        }
+        try {
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}`,
+          );
+          if (!response.ok) throw new Error("Reverse geocoding failed");
+          const data = await response.json();
+          const address = data.features[0]?.place_name || "Unknown Location";
+          dispatch(setSelectedLocation({ lat, lon: lng, address }));
+        } catch {
+          dispatch(setSelectedLocation({ lat, lon: lng, address: "Unknown Location" }));
+          setErrorMessage("Failed to retrieve address. Using coordinates only.");
+        }
       },
-      moveend: () => setMapBounds(map.getBounds()),
-      zoomend: () => setMapBounds(map.getBounds()),
       load: () => {
-        setMapBounds(map.getBounds());
         setIsMapReady(true);
+        console.log("🟢 MapEventsHandler: Map loaded");
       },
     });
-
     useEffect(() => {
-      mapRef.current = map;
+      if (map) {
+        mapRef.current = map;
+        (window as any).mapRef = map;
+        console.log("✅ MapEventsHandler: mapRef.current set and exposed to window.mapRef");
+        console.log("✅ MapEventsHandler: mapRef.current set:", mapRef.current.getCenter());
+      }
     }, [map]);
-
     return null;
+  };
+
+  const ZoomControl: React.FC = () => {
+    const map = useMap();
+    return (
+      <div style={{
+        position: "absolute",
+        top: isMobile ? SPACING.xl : "80px",
+        right: SPACING.md,
+        zIndex: 1000,
+        display: "flex",
+        flexDirection: "column",
+        gap: SPACING.xs,
+      }}>
+        <IconButton
+          onClick={() => {
+            map.zoomIn();
+            dispatch(setSelectedLocation(null));
+          }}
+          aria-label="Zoom in"
+        >
+          +
+        </IconButton>
+        <IconButton
+          onClick={() => {
+            map.zoomOut();
+            dispatch(setSelectedLocation(null));
+          }}
+          aria-label="Zoom out"
+        >
+          −
+        </IconButton>
+      </div>
+    );
   };
 
   useEffect(() => {
     if (mapRef.current && selectedLocation) {
-      mapRef.current.setView([selectedLocation.lat, selectedLocation.lon], 15);
+      const currentCenter = mapRef.current.getCenter();
+      const distance = currentCenter.distanceTo(latLng(selectedLocation.lat, selectedLocation.lon));
+      if (distance > 500) {
+        mapRef.current.setView([selectedLocation.lat, selectedLocation.lon], 13);
+      }
     }
   }, [selectedLocation]);
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
-
-    // TODO: Implement forward geocoding with Nominatim API
-    const results = [{ lat: 31.5, lon: 34.5, address: "Sample Location" }];
-    if (results.length > 0) {
-      const firstResult = results[0];
-      dispatch(setSelectedLocation({
-        lat: firstResult.lat,
-        lon: firstResult.lon,
-        address: firstResult.address,
-      }));
-      setSearchTerm("");
-    } else {
-      alert("No results found. Please try another query.");
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      return;
     }
+    if (!mapboxToken) {
+      setErrorMessage("Mapbox token is missing. Search functionality is disabled.");
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${searchTerm}.json?access_token=${mapboxToken}&limit=5`,
+      );
+      if (!response.ok) throw new Error("Geocoding failed");
+      const data = await response.json();
+      if (data.features.length > 0) {
+        const results = data.features.map((feature: any) => ({
+          lat: feature.center[1],
+          lon: feature.center[0],
+          address: feature.place_name,
+        }));
+        setSearchResults(results);
+      } else {
+        setSearchResults([]);
+        setErrorMessage("No results found. Please try another query.");
+      }
+    } catch {
+      setSearchResults([]);
+      setErrorMessage("Search failed. Please check your query and internet connection.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectLocation = (location: SelectedLocation) => {
+    dispatch(setSelectedLocation(location));
+    setSearchTerm("");
+    setSearchResults([]);
+    if (mapRef.current && mapRef.current.setView) {
+      mapRef.current.setView([location.lat, location.lon], 13);
+    }
+  };
+
+  const getLocationAnalysis = (lat: number, lon: number) => {
+    const nearbyDisasters = disasterData.filter(event => {
+      const eventLatLng = latLng(Number(event.latitude), Number(event.longitude));
+      const selectedLatLng = latLng(lat, lon);
+      return eventLatLng.distanceTo(selectedLatLng) < 200000;
+    });
+    let riskLevel = "Low";
+    let advice = "No significant disaster activity detected nearby.";
+    let color = OCHA_COLORS.green[500];
+    if (nearbyDisasters.length > 0) {
+      const hasHighRisk = nearbyDisasters.some(event => event.risk_level === "High");
+      const hasModerateRisk = nearbyDisasters.some(event => event.risk_level === "Moderate");
+      if (hasHighRisk) {
+        riskLevel = "High Risk";
+        advice = `Significant disaster activity detected (${nearbyDisasters.length} events, including high-risk events).`;
+        color = OCHA_COLORS.red[500];
+      } else if (hasModerateRisk) {
+        riskLevel = "Moderate Risk";
+        advice = `Recent disaster activity detected (${nearbyDisasters.length} events).`;
+        color = OCHA_COLORS.yellow[500];
+      } else {
+        riskLevel = "Low Risk";
+        advice = `Minor disaster activity detected (${nearbyDisasters.length} events).`;
+        color = OCHA_COLORS.green[500];
+      }
+    }
+    return { riskLevel, advice, color };
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -291,115 +629,48 @@ const MapComponent: React.FC = () => {
     setUnreadNotificationsCount(0);
   }, []);
 
-  const visibleDisasters = useMemo(() => {
-    if (!mapBounds || !isMapReady || disasterData.length === 0) return [];
-    return disasterData.filter(event =>
-      typeof event.latitude === "number" && !isNaN(event.latitude) &&
-      typeof event.longitude === "number" && !isNaN(event.longitude) &&
-      typeof event.magnitude === "number" && !isNaN(event.magnitude) &&
-      mapBounds.contains(L.latLng(event.latitude, event.longitude)) &&
-      (activeFilter === "all" || event.disaster_type.toLowerCase() === activeFilter),
-    );
-  }, [disasterData, mapBounds, isMapReady, activeFilter]);
-
-  const allActiveAlerts = useMemo(() => {
-    const alerts: { id: string; type: string; title: string; time: number; link?: string; details: string }[] = [];
-    disasterData.filter(event => event.time >= (Date.now() - 24 * 60 * 60 * 1000)).forEach(event => {
-      const disasterType = event.disaster_type.toLowerCase();
-      const specificDetails: { [key: string]: string } = {
-        earthquake: `Depth: ${event.depth?.toFixed(1) ?? "N/A"} km | Epicenter: ${event.place}`,
-        "tropical cyclone": `Wind Speed: Est. ${Math.round(event.magnitude * 10)} km/h`,
-        wildfire: `Area Affected: Est. ${Math.round(event.magnitude * 100)} sq km`,
-        drought: `Severity: Level ${Math.round(event.magnitude)}`,
-        flood: `Water Level: Est. ${Math.round(event.magnitude * 2)} meters`,
-        "explosions/remote violence": `Casualties: Unknown | Location: ${event.place}`,
-        protests: `Participants: Est. ${Math.round(event.magnitude * 50)}`,
-        "strategic developments": `Impact: Strategic | Time: ${new Date(event.time).toLocaleString()}`,
-        riots: `Intensity: High | Location: ${event.place}`,
-        "violence against civilians": `Casualties: Unknown | Time: ${new Date(event.time).toLocaleString()}`,
-        battles: `Duration: Ongoing | Location: ${event.place}`,
-      };
-      alerts.push({
+  const allActiveAlerts = useCallback(() => {
+    return disasterData.filter((event: DisasterEvent) => event.time >= (Date.now() - 24 * 60 * 60 * 1000)).map(event => ({
         id: event.id,
-        type: disasterType.charAt(0).toUpperCase() + disasterType.slice(1),
-        title: `${disasterType.charAt(0).toUpperCase() + disasterType.slice(1)} at ${event.place}`,
+        type: event.disaster_type,
+        title: event.disaster_type,
         time: event.time,
         link: event.url,
-        details: specificDetails[disasterType] || `Magnitude: ${event.magnitude.toFixed(1)} | Location: ${event.place}`,
-      });
-    });
-    return alerts.sort((a, b) => b.time - a.time);
+        details: event.summary,
+      })).sort((a, b) => b.time - a.time);
   }, [disasterData]);
+  useEffect(() => {
+    setUnreadNotificationsCount(allActiveAlerts().length);
+  }, [allActiveAlerts]);
 
-  const getSafetyAnalysis = (location: SelectedLocation | null) => {
-    if (!location) return null;
+  const appTextStyle: React.CSSProperties = {
+    fontFamily: "\"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
+    color: OCHA_COLORS.gray[500],
+    lineHeight: 1.6,
+  };
 
-    const nearbyDisasters = visibleDisasters.filter(event => {
-      const eventLatLng = L.latLng(event.latitude, event.longitude);
-      const selectedLatLng = L.latLng(location.lat, location.lon);
-      return eventLatLng.distanceTo(selectedLatLng) < 200000;
+  const getDisasterIcon = (disasterType: string) => {
+    const typeLower = disasterType.toLowerCase();
+    let iconUrl = "/icons/disaster.png";
+    if (typeLower.includes("earthquake")) iconUrl = "/icons/earthquake.png";
+    else if (typeLower.includes("flood")) iconUrl = "/icons/flood.png";
+    else if (typeLower.includes("tropical cyclone")) iconUrl = "/icons/cyclone1.png";
+    else if (typeLower.includes("wildfire")) iconUrl = "/icons/wildfire.png";
+    else if (typeLower.includes("drought")) iconUrl = "/icons/drought.png";
+    else if (typeLower.includes("violence")) iconUrl = "/icons/violence.png";
+    else if (typeLower.includes("protests") || typeLower.includes("demonstration")) iconUrl = "/icons/demonstrations.png";
+    return divIcon({
+      className: "custom-icon",
+      html: `<img src="${iconUrl}" style="width: 30px; height: 30px;" />`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
     });
-
-    let riskLevel = "Unknown";
-    let advice = "No specific advice available.";
-    let color = OCHA_COLORS.gray;
-
-    if (nearbyDisasters.length === 0) {
-      riskLevel = "Low Risk";
-      advice = "No recent significant disaster activity detected nearby. Stay vigilant.";
-      color = OCHA_COLORS.green;
-    } else if (nearbyDisasters.length < 3) {
-      riskLevel = "Moderate Risk";
-      advice = `Recent activity detected (${nearbyDisasters.length} events). Monitor alerts and prepare an emergency kit.`;
-      color = OCHA_COLORS.yellow;
-    } else {
-      riskLevel = "High Risk";
-      advice = `Significant activity detected (${nearbyDisasters.length} events). Evacuate if ordered and follow local guidance.`;
-      color = OCHA_COLORS.red;
-    }
-
-    return (
-      <div style={{
-        backgroundColor: "#F9F9F9",
-        padding: "15px",
-        borderRadius: "8px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        marginTop: "15px",
-        borderLeft: `4px solid ${color}`,
-        fontFamily: "Arial, sans-serif",
-      }}>
-        <h3 style={{ margin: "0 0 8px", fontSize: "1.1rem", color: OCHA_COLORS.blue, fontWeight: 600 }}>Safety Analysis</h3>
-        <p style={{ margin: "0", fontSize: "1rem", color, fontWeight: 500 }}>{riskLevel}</p>
-        <p style={{ margin: "5px 0 0", fontSize: "0.85rem", color: OCHA_COLORS.gray, lineHeight: 1.5 }}>{advice}</p>
-      </div>
-    );
   };
 
-  const getDisasterHoverContent = (event: DisasterEvent) => {
-    const disasterType = event.disaster_type.toLowerCase();
-    const specificDetails: { [key: string]: string } = {
-      earthquake: `Depth: ${event.depth?.toFixed(1) ?? "N/A"} km | Epicenter: ${event.place}`,
-      "tropical cyclone": `Wind Speed: Est. ${Math.round(event.magnitude * 10)} km/h`,
-      wildfire: `Area Affected: Est. ${Math.round(event.magnitude * 100)} sq km`,
-      drought: `Severity: Level ${Math.round(event.magnitude)}`,
-      flood: `Water Level: Est. ${Math.round(event.magnitude * 2)} meters`,
-      "explosions/remote violence": `Casualties: Unknown | Location: ${event.place}`,
-      protests: `Participants: Est. ${Math.round(event.magnitude * 50)}`,
-      "strategic developments": `Impact: Strategic | Time: ${new Date(event.time).toLocaleString()}`,
-      riots: `Intensity: High | Location: ${event.place}`,
-      "violence against civilians": `Casualties: Unknown | Time: ${new Date(event.time).toLocaleString()}`,
-      battles: `Duration: Ongoing | Location: ${event.place}`,
-    };
-    return `
-      <p><strong>${disasterType.charAt(0).toUpperCase() + disasterType.slice(1)}</strong></p>
-      <p>${specificDetails[disasterType] || `Magnitude: ${event.magnitude.toFixed(1)} | Location: ${event.place}`}</p>
-      ${event.url ? `<a href="${event.url}" target="_blank" rel="noopener noreferrer">More Info</a>` : ""}
-    `;
-  };
-
-  const renderRiskCircle = (lat: number, lon: number, radiusKm: number, color: string) => {
+  const renderRiskCircle = (lat: number, lon: number, riskLevel: string) => {
     if (typeof lat !== "number" || isNaN(lat) || typeof lon !== "number" || isNaN(lon)) return null;
-    const radius = radiusKm <= 0 ? 10000 : radiusKm * 1000;
+    const radius = riskLevel === "High" ? 20000 : riskLevel === "Moderate" ? 15000 : 10000;
+    const color = riskLevel === "High" ? OCHA_COLORS.red[500] : riskLevel === "Moderate" ? OCHA_COLORS.yellow[500] : OCHA_COLORS.green[500];
     return (
       <Circle
         center={[lat, lon]}
@@ -409,439 +680,404 @@ const MapComponent: React.FC = () => {
     );
   };
 
-  const iconButtonStyle: React.CSSProperties = {
-    padding: "10px",
-    backgroundColor: OCHA_COLORS.white,
-    color: OCHA_COLORS.blue,
-    border: `1px solid ${OCHA_COLORS.lightGray}`,
-    borderRadius: "6px",
-    cursor: "pointer",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "4px",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    transition: "background-color 0.2s, box-shadow 0.2s",
-    width: "70px",
-    height: "60px",
-    fontFamily: "Arial, sans-serif",
-    position: "relative",
+  const handleToggleExtendedCoverage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsExtendedCoverage(e.target.checked);
   };
 
-  const iconStyle: React.CSSProperties = {
-    fontSize: "1.4rem",
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setInundationProbability(value);
   };
 
-  const appTextStyle: React.CSSProperties = {
-    fontFamily: "Arial, sans-serif",
-    color: OCHA_COLORS.gray,
-    lineHeight: 1.5,
+  const handleSelectDisasterType = (type: string) => {
+    setSelectedDisasterType(type === selectedDisasterType ? null : type);
   };
+
+  const visibleDisasters = disasterData.filter((event: DisasterEvent) => {
+    const lat = Number(event.latitude);
+    const lon = Number(event.longitude);
+    if (typeof lat !== "number" || isNaN(lat) || typeof lon !== "number" || isNaN(lon)) return false;
+
+    if (selectedDisasterType && event.disaster_type.toLowerCase() !== selectedDisasterType.toLowerCase()) {
+      return false;
+    }
+
+    const riskMap = { "High": 80, "Moderate": 50, "Low": 20 };
+    const eventRiskValue = riskMap[event.risk_level as keyof typeof riskMap] || 0;
+    if (eventRiskValue < inundationProbability) {
+      return false;
+    }
+
+    return true;
+  });
 
   return (
     <div style={{ position: "relative", height: "100vh", width: "100vw", overflow: "hidden", ...appTextStyle }}>
-      <Image
-        src="/logo icon.png"
-        alt="App Logo"
-        width={48}
-        height={48}
-        style={{
-          position: "absolute",
-          top: "15px",
-          left: "15px",
-          zIndex: 500,
-          borderRadius: "6px",
-          backgroundColor: OCHA_COLORS.white,
-          padding: "4px",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          height: "100%",
-          width: isSidebarOpen ? SIDEBAR_WIDTH_OPEN : SIDEBAR_WIDTH_CLOSED,
-          backgroundColor: OCHA_COLORS.white,
-          color: OCHA_COLORS.gray,
-          zIndex: 1500,
-          transition: `width ${SIDEBAR_TRANSITION_DURATION} ease-in-out`,
-          overflowX: "hidden",
-          padding: isSidebarOpen ? "20px" : "0",
-          boxSizing: "border-box",
-          display: "flex",
-          flexDirection: "column",
-          gap: "15px",
-          boxShadow: "2px 0 8px rgba(0,0,0,0.1)",
-          ...appTextStyle,
-        }}
-      >
-        {isSidebarOpen && (
-          <>
-            <div style={{ display: "flex", gap: "10px", width: "100%", alignItems: "center" }}>
-              <form onSubmit={handleSearch} style={{ display: "flex", flexGrow: 1, gap: "8px" }}>
-                <FaSearch style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: OCHA_COLORS.lightBlue, fontSize: "1rem", pointerEvents: "none" }} />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search location..."
+      <div style={{ height: "100%", width: "100%", position: "relative" }}>
+        {errorMessage && (
+          <div
+            style={{
+              position: "absolute",
+              top: SPACING.lg,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 3000,
+              background: OCHA_COLORS.white,
+              padding: SPACING.md,
+              borderRadius: "8px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              color: OCHA_COLORS.red[500],
+              display: "flex",
+              alignItems: "center",
+              gap: SPACING.sm,
+              fontFamily: "\"Inter\", sans-serif",
+            }}
+          >
+            <ErrorAlert>
+              {errorMessage}
+              <ErrorCloseButton onClick={() => setErrorMessage(null)}>Close</ErrorCloseButton>
+            </ErrorAlert>
+          </div>
+        )}
+        <div
+          style={{
+            position: "absolute",
+            top: SPACING.md,
+            left: SPACING.md,
+            zIndex: 1500,
+            display: "flex",
+            flexDirection: "column",
+            gap: SPACING.sm,
+          }}
+        >
+          <Image
+            src="/logo icon.png"
+            alt="App Logo"
+            width={52}
+            height={52}
+            style={{
+              borderRadius: "8px",
+              backgroundColor: OCHA_COLORS.white,
+              padding: SPACING.xs,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+            }}
+          />
+          <form onSubmit={handleSearch} style={{ position: "relative", width: "300px" }}>
+            <FaSearch
+              style={{
+                position: "absolute",
+                left: SPACING.md,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: OCHA_COLORS.gray[400],
+                fontSize: "1rem",
+              }}
+            />
+            <SearchInput
+              type="text"
+              value={searchTerm}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+              placeholder="Search for a location..."
+              disabled={isSearching}
+              aria-label="Search location"
+            />
+            {isSearching && <LoadingSpinner />}
+          </form>
+          {searchResults.length > 0 && (
+            <SearchResults isvisible={true}>
+              {searchResults.map((result: SelectedLocation, index: number) => {
+                const analysis = getLocationAnalysis(result.lat, result.lon);
+                return (
+                  <ResultItem key={index} onClick={() => handleSelectLocation(result)}>
+                    {result.address}
+                    <div style={{ color: analysis.color, fontSize: TYPOGRAPHY.small.fontSize }}>
+                      {analysis.riskLevel}: {analysis.advice}
+                    </div>
+                  </ResultItem>
+                );
+              })}
+            </SearchResults>
+          )}
+        </div>
+        {isMobile && (
+          <IconButton
+            onClick={toggleSidebar}
+            style={{
+              position: "absolute",
+              top: SPACING.md,
+              left: SPACING.md,
+              zIndex: 2000,
+              backgroundColor: OCHA_COLORS.white,
+            }}
+            aria-label="Toggle sidebar"
+          >
+            ☰
+          </IconButton>
+        )}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            height: "100%",
+            width: isSidebarOpen ? SIDEBAR_WIDTH_OPEN : SIDEBAR_WIDTH_CLOSED,
+            background: `linear-gradient(180deg, ${OCHA_COLORS.white} 0%, ${OCHA_COLORS.gray[100]} 100%)`,
+            color: OCHA_COLORS.gray[500],
+            zIndex: 1500,
+            transition: `width ${SIDEBAR_TRANSITION_DURATION} ease-in-out, transform 0.3s ease-in-out`,
+            transform: isSidebarOpen ? "translateX(0)" : "translateX(-20px)",
+            overflowX: "hidden",
+            padding: isSidebarOpen ? SPACING.lg : "0",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            gap: SPACING.md,
+            boxShadow: "2px 0 8px rgba(0,0,0,0.1)",
+            ...appTextStyle,
+            ...(isMobile && {
+              width: isSidebarOpen ? "100%" : SIDEBAR_WIDTH_CLOSED,
+              maxWidth: "360px",
+            }),
+          }}
+        >
+          {isSidebarOpen && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: SPACING.sm,
+                  paddingBottom: SPACING.md,
+                  borderBottom: `1px solid ${OCHA_COLORS.gray[100]}`,
+                }}
+              >
+                <Image src="/logo icon.png" alt="App Logo" width={32} height={32} />
+                <h1 style={{ ...TYPOGRAPHY.h1, color: OCHA_COLORS.blue[500] }}>Disaster Map</h1>
+              </div>
+              <form onSubmit={handleSearch} style={{ display: "flex", flexGrow: 1, position: "relative" }}>
+                <FaSearch
                   style={{
-                    flexGrow: 1,
-                    padding: "10px 10px 10px 35px",
-                    borderRadius: "6px",
-                    border: `1px solid ${OCHA_COLORS.lightGray}`,
-                    backgroundColor: "#F9F9F9",
-                    color: OCHA_COLORS.gray,
-                    fontSize: "0.9rem",
-                    outline: "none",
-                    ...appTextStyle,
+                    position: "absolute",
+                    left: SPACING.md,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: OCHA_COLORS.gray[400],
+                    fontSize: "1rem",
                   }}
                 />
-                <button
-                  type="submit"
-                  style={{
-                    padding: "10px 15px",
-                    borderRadius: "6px",
-                    border: "none",
-                    backgroundColor: OCHA_COLORS.blue,
-                    color: OCHA_COLORS.white,
-                    cursor: "pointer",
-                    fontWeight: 500,
-                    fontSize: "0.9rem",
-                    transition: "background-color 0.2s",
-                    ...appTextStyle,
-                  }}
-                >
-                  Search
-                </button>
+                <SearchInput
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                  placeholder="Search for a location..."
+                  disabled={isSearching}
+                  aria-label="Search location"
+                />
+                {isSearching && <LoadingSpinner />}
               </form>
-
-              <div style={{ position: "relative" }}>
-                <button
-                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: "6px",
-                    border: `1px solid ${OCHA_COLORS.lightGray}`,
-                    backgroundColor: OCHA_COLORS.white,
-                    color: OCHA_COLORS.blue,
-                    cursor: "pointer",
-                    fontWeight: 500,
-                    fontSize: "0.9rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "5px",
-                    ...appTextStyle,
-                  }}
-                  title="Filter Map Data"
-                >
-                  <FaFilter /> Filter <FaChevronDown />
-                </button>
-                {showFilterDropdown && (
-                  <div style={{
-                    position: "absolute",
-                    top: "100%",
-                    right: 0,
-                    marginTop: "8px",
-                    backgroundColor: OCHA_COLORS.white,
-                    borderRadius: "6px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                    padding: "8px",
-                    zIndex: 2000,
-                    minWidth: "200px",
-                  }}>
-                    {Object.keys(disasterIconConfig).concat("all").map((filter) => (
-                      <button
-                        key={filter}
-                        onClick={() => {
-                          setActiveFilter(filter as FilterType);
-                          setShowFilterDropdown(false);
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "8px 10px",
-                          backgroundColor: activeFilter === filter ? OCHA_COLORS.lightBlue : "transparent",
-                          color: activeFilter === filter ? OCHA_COLORS.white : OCHA_COLORS.gray,
-                          border: "none",
-                          borderRadius: "4px",
-                          textAlign: "left",
-                          cursor: "pointer",
-                          fontSize: "0.85rem",
-                          transition: "background-color 0.2s",
-                          ...appTextStyle,
-                        }}
-                      >
-                        {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {selectedLocation && (
-              <div style={{
-                backgroundColor: "#F9F9F9",
-                padding: "15px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
-                marginTop: "15px",
-                borderLeft: `4px solid ${OCHA_COLORS.blue}`,
-                ...appTextStyle,
-              }}>
-                <h3 style={{ margin: "0 0 8px", fontSize: "1.1rem", color: OCHA_COLORS.blue, fontWeight: 600 }}>Selected Location</h3>
-                <p style={{ margin: "0", fontSize: "0.9rem", lineHeight: 1.5 }}>
-                  {selectedLocation.address} <br />
-                  <small style={{ color: OCHA_COLORS.lightGray, fontSize: "0.8rem" }}>
-                    ({selectedLocation.lat.toFixed(4)}, {selectedLocation.lon.toFixed(4)})
-                  </small>
-                </p>
-              </div>
-            )}
-
-            {getSafetyAnalysis(selectedLocation)}
-          </>
-        )}
-      </div>
-
-      <button
-        onClick={toggleSidebar}
-        style={{
-          position: "absolute",
-          top: "15px",
-          left: isSidebarOpen ? `calc(${SIDEBAR_WIDTH_OPEN} + 10px)` : "10px",
-          zIndex: 2000,
-          padding: "8px",
-          backgroundColor: OCHA_COLORS.white,
-          color: OCHA_COLORS.blue,
-          border: `1px solid ${OCHA_COLORS.lightGray}`,
-          borderRadius: "50%",
-          cursor: "pointer",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
-          fontSize: "1.2rem",
-          transition: `left ${SIDEBAR_TRANSITION_DURATION} ease-in-out, transform ${SIDEBAR_TRANSITION_DURATION} ease-in-out`,
-          transform: isSidebarOpen ? "rotate(0deg)" : "rotate(180deg)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "40px",
-          height: "40px",
-          fontFamily: "Arial, sans-serif",
-        }}
-        title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
-      >
-        {isSidebarOpen ? "←" : "→"}
-      </button>
-
-      <MapContainer
-        center={initialMapCenter}
-        zoom={6}
-        scrollWheelZoom={true}
-        style={{ height: "100%", width: "100%", background: "#F5F5F5" }}
-        zoomControl={false}
-      >
-        <TileLayer
-          attribution='© <a href="https://carto.com/attributions">CARTO</a> <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          maxZoom={19}
-        />
-        <MapEventsHandler />
-        {userCurrentLocation && (
-          <Marker
-            position={userCurrentLocation}
-            icon={L.divIcon({
-              className: "my-location-icon",
-              html: `<div style="background-color:${OCHA_COLORS.blue};width:12px;height:12px;border-radius:50%;border:2px solid ${OCHA_COLORS.white};box-shadow:0 0 4px rgba(0,90,138,0.5);"></div>`,
-              iconSize: [12, 12],
-              iconAnchor: [6, 6],
-            })}
+            </>
+          )}
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            top: SPACING.md,
+            right: SPACING.md,
+            zIndex: 1000,
+            display: "flex",
+            gap: SPACING.sm,
+            flexDirection: isMobile ? "column" : "row",
+          }}
+        >
+          <IconButton
+            onClick={handleNotificationsClick}
+            aria-label="Notifications"
+            title="Notifications"
+            style={{ position: "relative" }}
           >
-            <Popup className="popup-content">Your Current Location</Popup>
-          </Marker>
+            <FaBell />
+            {unreadNotificationsCount > 0 && <NotificationBadge>{unreadNotificationsCount}</NotificationBadge>}
+          </IconButton>
+          <IconButton
+            onClick={() => setActivePanel("messages")}
+            aria-label="Messages"
+            title="Messages"
+          >
+            <FaEnvelope />
+          </IconButton>
+          <IconButton
+            onClick={() => setActivePanel("profile")}
+            aria-label="Profile"
+            title="Profile"
+          >
+            <FaUser />
+          </IconButton>
+        </div>
+        {isLoading && (
+          <MapSpinner>
+            <MapSpinnerInner />
+          </MapSpinner>
         )}
-        {selectedLocation && (
-          <Marker position={[selectedLocation.lat, selectedLocation.lon]}>
-            <Popup className="popup-content">
-              <strong>Location:</strong> {selectedLocation.address} <br />
-              <small>({selectedLocation.lat.toFixed(4)}, {selectedLocation.lon.toFixed(4)})</small>
-            </Popup>
-          </Marker>
-        )}
-        {isMapReady && visibleDisasters.map((event) => {
-          const disasterType = event.disaster_type.toLowerCase();
-          const circleColor = disasterIconConfig[disasterType]?.color || OCHA_COLORS.red;
-          return (
+        <MapContainer
+          ref={mapRef}
+          center={initialMapCenter}
+          zoom={13}
+          scrollWheelZoom={true}
+          style={{ height: "100%", width: "100%", background: "#F5F5F5" }}
+          zoomControl={false}
+          whenReady={() => {
+            if (mapRef.current) {
+              console.log("✅ MAP IS READY:", mapRef.current.getCenter(), "Zoom:", mapRef.current.getZoom());
+              mapRef.current.setView(initialMapCenter, 13);
+            }
+          }}
+        >
+          <TileLayer
+            attribution='© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url={mapboxToken ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}` : ""}
+            tileSize={512}
+            zoomOffset={-1}
+            maxZoom={19}
+          />
+          <MapEventsHandler />
+          <ZoomControl />
+          {visibleDisasters.map((event: DisasterEvent, index: number) => (
             <React.Fragment key={event.id}>
-              {renderRiskCircle(event.latitude, event.longitude, event.magnitude, circleColor)}
+              {renderRiskCircle(Number(event.latitude), Number(event.longitude), event.risk_level)}
               <Marker
-                position={[event.latitude, event.longitude]}
-                icon={getDisasterIcon(disasterType, event.magnitude)}
+                position={[Number(event.latitude), Number(event.longitude)]}
+                icon={getDisasterIcon(event.disaster_type)}
+                eventHandlers={{
+                  click: () => {
+                    setSelectedEvent(event);
+                  },
+                }}
               >
-                <Tooltip direction="top" offset={[0, -25]} opacity={1} className="custom-tooltip">
-                  <div dangerouslySetInnerHTML={{ __html: getDisasterHoverContent(event) }} />
-                </Tooltip>
-                <Popup className="popup-content">
-                  <strong>{disasterType.charAt(0).toUpperCase() + disasterType.slice(1)}</strong> <br />
-                  {disasterType === "earthquake" && `Depth: ${event.depth?.toFixed(1) ?? "N/A"} km`} <br />
-                  {disasterType !== "earthquake" && `Magnitude: ${event.magnitude.toFixed(2)}`} <br />
-                  Location: {event.place} <br />
-                  Time: {new Date(event.time).toLocaleString()} <br />
-                  {event.url && <a href={event.url} target="_blank" rel="noopener noreferrer">More Info</a>}
+                <Popup
+                  className="custom-popup"
+                  maxWidth={250}
+                  maxHeight={200}
+                  autoPan={false}
+                  closeButton={false}
+                  offset={[0, -30]}
+                >
+                  <Suspense fallback={<div style={{ padding: "8px" }}>Loading...</div>}>
+                    {selectedEvent && (
+                      <TooltipComponent
+                        event={{
+                          ...selectedEvent,
+                          magnitude: selectedEvent.magnitude ?? 0, // Default to 0 if null
+                        }}
+                        disasterData={disasterData.map(event => ({
+                          ...event,
+                          magnitude: event.magnitude ?? 0, // Ensure all magnitudes are non-null
+                        }))}
+                        onClose={() => setSelectedEvent(null)}
+                      />
+                    )}
+                  </Suspense>
                 </Popup>
               </Marker>
             </React.Fragment>
-          );
-        })}
-      </MapContainer>
-
-      <div style={{ position: "absolute", bottom: "10px", right: "10px", zIndex: 1000, display: "flex", gap: "10px" }}>
-        <button
-          onClick={handleNotificationsClick}
-          style={{ ...iconButtonStyle, position: "relative" }}
-          title="Notifications"
-        >
-          <FaBell style={iconStyle} />
-          <span>Alerts</span>
-          {unreadNotificationsCount > 0 && <span className="notification-badge">{unreadNotificationsCount}</span>}
-        </button>
-        <button
-          onClick={() => setActivePanel("messages")}
-          style={iconButtonStyle}
-          title="Messages"
-        >
-          <FaEnvelope style={iconStyle} />
-          <span>Messages</span>
-        </button>
-        <button
-          onClick={() => setActivePanel("profile")}
-          style={iconButtonStyle}
-          title="Profile"
-        >
-          <FaUser style={iconStyle} />
-          <span>Profile</span>
-        </button>
-        <div style={{ position: "relative" }}>
-          <button
-            onClick={() => setShowMoreDropdown(!showMoreDropdown)}
-            style={iconButtonStyle}
-            title="More Options"
-          >
-            <FaEllipsisH style={iconStyle} />
-            <span>More</span>
-          </button>
-          {showMoreDropdown && (
-            <div style={{
-              position: "absolute",
-              top: "100%",
-              right: 0,
-              marginTop: "8px",
-              backgroundColor: OCHA_COLORS.white,
-              borderRadius: "6px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-              padding: "8px",
-              zIndex: 1050,
-              minWidth: "180px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-            }}>
-              <button
-                onClick={() => {
-                  window.open("https://www.redcross.org/store/emergency-preparedness.html", "_blank");
-                  setShowMoreDropdown(false);
-                }}
-                style={{
-                  ...iconButtonStyle,
-                  width: "auto",
-                  height: "auto",
-                  padding: "8px 12px",
-                  flexDirection: "row",
-                  justifyContent: "flex-start",
-                  backgroundColor: "transparent",
-                  border: "none",
-                  boxShadow: "none",
-                  color: OCHA_COLORS.blue,
-                  fontSize: "0.85rem",
-                }}
-              >
-                🛍️ Emergency Kits
-              </button>
-              <button
-                onClick={() => {
-                  alert("Report Incident: Upload photos and details to contribute to real-time disaster mapping.");
-                  setShowMoreDropdown(false);
-                }}
-                style={{
-                  ...iconButtonStyle,
-                  width: "auto",
-                  height: "auto",
-                  padding: "8px 12px",
-                  flexDirection: "row",
-                  justifyContent: "flex-start",
-                  backgroundColor: "transparent",
-                  border: "none",
-                  boxShadow: "none",
-                  color: OCHA_COLORS.blue,
-                  fontSize: "0.85rem",
-                }}
-              >
-                📢 Report Incident
-              </button>
-              <button
-                onClick={() => {
-                  alert("AI Assistant: Get personalized safety advice and evacuation routes based on your location.");
-                  setShowMoreDropdown(false);
-                }}
-                style={{
-                  ...iconButtonStyle,
-                  width: "auto",
-                  height: "auto",
-                  padding: "8px 12px",
-                  flexDirection: "row",
-                  justifyContent: "flex-start",
-                  backgroundColor: "transparent",
-                  border: "none",
-                  boxShadow: "none",
-                  color: OCHA_COLORS.blue,
-                  fontSize: "0.85rem",
-                }}
-              >
-                🤖 AI Assistant
-              </button>
-            </div>
+          ))}
+          {userCurrentLocation && (
+            <Marker
+              position={userCurrentLocation}
+              icon={divIcon({
+                className: "my-location-icon",
+                html: `<div style="background-color:${OCHA_COLORS.blue[500]};width:12px;height:12px;border-radius:50%;border:2px solid ${OCHA_COLORS.white};box-shadow:0 0 4px rgba(0,90,138,0.5);"></div>`,
+                iconSize: [12, 12],
+                iconAnchor: [6, 6],
+              })}
+            >
+              <Popup className="custom-popup" maxWidth={250} maxHeight={200} autoPan={false} closeButton={false} offset={[0, -30]}>
+                Your Current Location
+              </Popup>
+            </Marker>
           )}
-        </div>
+          {selectedLocation && selectedLocation.address !== "Unknown Location" && (
+            <Marker position={[selectedLocation.lat, selectedLocation.lon]}>
+              <Popup className="custom-popup" maxWidth={250} maxHeight={200} autoPan={false} closeButton={false} offset={[0, -30]}>
+                <strong>Location:</strong> {selectedLocation.address} <br />
+                <small>({selectedLocation.lat.toFixed(4)}, {selectedLocation.lon.toFixed(4)})</small>
+              </Popup>
+            </Marker>
+          )}
+        </MapContainer>
+
+        <PanelContainer>
+          <SectionHeader>Map Layers & Disaster Types</SectionHeader>
+          <ControlGroup>
+            <Label>
+              <ToggleSwitch>
+                <CheckboxInput checked={isExtendedCoverage} onChange={handleToggleExtendedCoverage} />
+                <Slider checked={isExtendedCoverage} />
+              </ToggleSwitch>
+              <span>Extended Coverage</span>
+            </Label>
+          </ControlGroup>
+          <ControlGroup>
+            <SectionHeader>Disaster Types</SectionHeader>
+            <LegendItem selected={selectedDisasterType === "earthquake"} onClick={() => handleSelectDisasterType("earthquake")}>
+              <Image src="/icons/earthquake.png" alt="Earthquake" width={20} height={20} />
+              <span>Earthquake</span>
+            </LegendItem>
+            <LegendItem selected={selectedDisasterType === "flood"} onClick={() => handleSelectDisasterType("flood")}>
+              <Image src="/icons/flood.png" alt="Flood" width={20} height={20} />
+              <span>Flood</span>
+            </LegendItem>
+            <LegendItem selected={selectedDisasterType === "tropical cyclone"} onClick={() => handleSelectDisasterType("tropical cyclone")}>
+              <Image src="/icons/cyclone1.png" alt="Tropical Cyclone" width={20} height={20} />
+              <span>Tropical Cyclone</span>
+            </LegendItem>
+            <LegendItem selected={selectedDisasterType === "wildfire"} onClick={() => handleSelectDisasterType("wildfire")}>
+              <Image src="/icons/wildfire.png" alt="Wildfire" width={20} height={20} />
+              <span>Wildfire</span>
+            </LegendItem>
+            <LegendItem selected={selectedDisasterType === "drought"} onClick={() => handleSelectDisasterType("drought")}>
+              <Image src="/icons/drought.png" alt="Drought" width={20} height={20} />
+              <span>Drought</span>
+            </LegendItem>
+          </ControlGroup>
+          <ControlGroup>
+            <SectionHeader>{selectedDisasterType ? `${selectedDisasterType} Probability` : "Risk Probability"}</SectionHeader>
+            <SliderContainer>
+              <RangeInput
+                min="0"
+                max="100"
+                value={inundationProbability}
+                onChange={handleSliderChange}
+              />
+              <span>{inundationProbability}%</span>
+            </SliderContainer>
+          </ControlGroup>
+          <ControlGroup>
+            <SectionHeader>Risk Level</SectionHeader>
+            <LegendItem selected={false}>
+              <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: OCHA_COLORS.red[500], opacity: 0.8 }}></div>
+              <span>High Risk</span>
+            </LegendItem>
+            <LegendItem selected={false}>
+              <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: OCHA_COLORS.yellow[500], opacity: 0.8 }}></div>
+              <span>Moderate Risk</span>
+            </LegendItem>
+            <LegendItem selected={false}>
+              <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: OCHA_COLORS.green[500], opacity: 0.8 }}></div>
+              <span>Low Risk</span>
+            </LegendItem>
+          </ControlGroup>
+        </PanelContainer>
+
+        <RightSidePanel isOpen={activePanel === "profile"} onClose={() => setActivePanel(null)}>
+          <UserProfileContent />
+        </RightSidePanel>
+        <RightSidePanel isOpen={activePanel === "notifications"} onClose={() => setActivePanel(null)}>
+          <NotificationsPanel alerts={allActiveAlerts()} />
+        </RightSidePanel>
+        <RightSidePanel isOpen={activePanel === "messages"} onClose={() => setActivePanel(null)}>
+          <MessagesPanel />
+        </RightSidePanel>
       </div>
-
-      <RightSidePanel
-        isOpen={activePanel === "profile"}
-        onClose={() => setActivePanel(null)}
-        title="User Profile"
-      >
-        <UserProfileContent />
-      </RightSidePanel>
-
-      <RightSidePanel
-        isOpen={activePanel === "notifications"}
-        onClose={() => setActivePanel(null)}
-        title="Alerts"
-      >
-        <NotificationsPanel alerts={allActiveAlerts} />
-      </RightSidePanel>
-
-      <RightSidePanel
-        isOpen={activePanel === "messages"}
-        onClose={() => setActivePanel(null)}
-        title="Messages"
-      >
-        <MessagesPanel />
-      </RightSidePanel>
     </div>
   );
 };

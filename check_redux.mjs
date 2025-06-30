@@ -1,0 +1,1 @@
+console.log("Simulating Redux state in Map/index.tsx..."); const visibleDisasters = []; console.log("visibleDisasters:", visibleDisasters.length, "items (If 0, no markers will show)"); if (visibleDisasters.length === 0) console.log("WARNING: No visible disasters in Redux state. Check src/app/map/page.tsx data fetching or Redux setup in src/components/Map/index.tsx.");

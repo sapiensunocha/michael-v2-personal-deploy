@@ -1,0 +1,1 @@
+import dotenv from "dotenv"; dotenv.config(); console.log("Simulating Map/index.tsx initialization..."); const isMapReady = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ? true : false; console.log("isMapReady:", isMapReady, process.env.NEXT_PUBLIC_MAPBOX_TOKEN ? "(Map should initialize)" : "(Map will not initialize due to missing token)");

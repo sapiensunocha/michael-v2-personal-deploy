@@ -1,73 +1,67 @@
-// src/components/RightSidePanel.tsx
 "use client";
 
 import React from "react";
 
 interface RightSidePanelProps {
   isOpen: boolean;
-  onClose: () => void;
-  title: string;
+  onClose?: () => void;
   children: React.ReactNode;
+  anchor?: "top-right" | "top-left";
 }
 
-const RightSidePanel: React.FC<RightSidePanelProps> = ({ isOpen, onClose, title, children }) => {
+const RightSidePanel: React.FC<RightSidePanelProps> = ({
+  isOpen,
+  onClose,
+  children,
+  anchor = "top-right",
+}) => {
+  const positionStyles: React.CSSProperties = {
+    position: "absolute",
+    zIndex: 3000,
+    transition: "opacity 0.3s ease, transform 0.3s ease",
+    ...(anchor === "top-right" && { top: "70px", right: "10px" }),
+    ...(anchor === "top-left" && { top: "70px", left: "10px" }),
+    opacity: isOpen ? 1 : 0,
+    transform: isOpen ? "translateY(0)" : "translateY(-10px)",
+    pointerEvents: isOpen ? "auto" : "none",
+  };
+
   return (
     <div
       style={{
-        position: "fixed",
-        top: 0,
-        right: isOpen ? 0 : "-400px", // Slide in from right (panel width is 400px)
-        width: "400px", // Fixed width for the panel
-        height: "100%",
-        backgroundColor: "#1a1a1a", // Dark background
-        boxShadow: "0 0 20px rgba(0,0,0,0.5)",
-        zIndex: 3000, // Higher than other map elements
-        transition: "right 0.3s ease-in-out", // Smooth slide animation
+        ...positionStyles,
+        width: "340px",
+        maxHeight: "660px", // Increased by 10%
+        backgroundColor: "rgba(255, 255, 255, 0.85)",
+        backdropFilter: "blur(10px)",
+        borderRadius: "12px",
+        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)",
+        padding: "16px",
         display: "flex",
         flexDirection: "column",
-        fontFamily: "\"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-        color: "#E0E0E0",
+        fontFamily: "'Helvetica Neue', Arial, sans-serif",
       }}
     >
-      {/* Panel Header */}
-      <div
-        style={{
-          padding: "20px",
-          borderBottom: "1px solid #333",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: "1.5em", color: "#88ccff", fontWeight: "600" }}>
-          {title}
-        </h2>
+      {onClose && (
         <button
-          onClick={onClose}
           style={{
-            backgroundColor: "transparent",
+            alignSelf: "flex-end",
+            background: "none",
             border: "none",
-            color: "#E0E0E0",
-            fontSize: "1.8em",
+            fontSize: "1.5em",
             cursor: "pointer",
-            transition: "color 0.2s ease-in-out",
-            lineHeight: "1",
+            color: "#444",
+            marginBottom: "10px",
+            transition: "color 0.2s ease",
           }}
+          onClick={onClose}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#0077B6")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#444")}
         >
-          &times;
+          ×
         </button>
-      </div>
-
-      {/* Panel Content Area */}
-      <div
-        style={{
-          flexGrow: 1, // Takes up remaining space
-          overflowY: "auto", // Scroll if content overflows
-          padding: "20px",
-        }}
-      >
-        {children}
-      </div>
+      )}
+      <div style={{ overflowY: "auto", paddingRight: "6px" }}>{children}</div>
     </div>
   );
 };

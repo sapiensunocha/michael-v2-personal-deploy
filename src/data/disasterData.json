@@ -1,0 +1,30 @@
+[
+  {
+    "id": "usgs-sample1",
+    "latitude": 37.7749,
+    "longitude": -122.4194,
+    "magnitude": 3.5,
+    "place": "San Francisco, CA",
+    "time": 1625097600000,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/sample1",
+    "detailUrl": "https://earthquake.usgs.gov/earthquakes/eventpage/sample1/detail",
+    "tsunami": 0,
+    "depth": 10,
+    "disaster_type": "earthquake",
+    "status": "reviewed"
+  },
+  {
+    "id": "usgs-sample2",
+    "latitude": 34.0522,
+    "longitude": -118.2437,
+    "magnitude": 4.0,
+    "place": "Los Angeles, CA",
+    "time": 1625184000000,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/sample2",
+    "detailUrl": "https://earthquake.usgs.gov/earthquakes/eventpage/sample2/detail",
+    "tsunami": 0,
+    "depth": 15,
+    "disaster_type": "earthquake",
+    "status": "reviewed"
+  }
+]
