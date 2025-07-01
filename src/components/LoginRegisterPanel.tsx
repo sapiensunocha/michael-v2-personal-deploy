@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-const __app_id = 'my-disaster-app';
-import { Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
+'use client'; // Ensure Next.js recognizes this as a client component
+
+import React, { useState, type FC } from 'react';
+import { Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, User } from 'firebase/auth';
 import { Firestore, doc, setDoc } from 'firebase/firestore';
 
 interface LoginRegisterPanelProps {
@@ -10,7 +11,7 @@ interface LoginRegisterPanelProps {
   setUser: (user: User | null) => void;
 }
 
-const LoginRegisterPanel: React.FC<LoginRegisterPanelProps> = ({ auth, db, userId, setUser }) => {
+const LoginRegisterPanel: FC<LoginRegisterPanelProps> = ({ auth, db, userId, setUser }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -78,12 +79,15 @@ const LoginRegisterPanel: React.FC<LoginRegisterPanelProps> = ({ auth, db, userI
       if (isRegisterMode) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         setUser(userCredential.user);
-        // Optionally save additional user data to Firestore here
         if (db && userCredential.user.uid) {
-            const userDocRef = doc(db, `/artifacts/${__app_id}/users/${userCredential.user.uid}/profile/details`);
-            await setDoc(userDocRef, { email: userCredential.user.email, registeredAt: new Date().toISOString() });
+          const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID || 'default-app-id';
+          const userDocRef = doc(db, `/artifacts/${appId}/users/${userCredential.user.uid}/profile/details`);
+          await setDoc(userDocRef, {
+            email: userCredential.user.email,
+            registeredAt: new Date().toISOString(),
+          });
         }
-        alert("Registration successful! You are now logged in.");
+        alert("Registration successful!");
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         setUser(userCredential.user);
@@ -113,9 +117,7 @@ const LoginRegisterPanel: React.FC<LoginRegisterPanelProps> = ({ auth, db, userI
             onChange={(e) => setEmail(e.target.value)}
             style={inputStyle}
             required
-            aria-label="Email"
           />
-
           <label style={{ display: 'block', marginBottom: '5px' }}>Password:</label>
           <input
             type="password"
@@ -123,13 +125,10 @@ const LoginRegisterPanel: React.FC<LoginRegisterPanelProps> = ({ auth, db, userI
             onChange={(e) => setPassword(e.target.value)}
             style={inputStyle}
             required
-            aria-label="Password"
           />
-
-          {error && <p style={{ color: '#dc3545', fontSize: '0.9em', marginTop: '10px', textAlign: 'center' }}>{error}</p>}
-
+          {error && <p style={{ color: '#dc3545', fontSize: '0.9em', textAlign: 'center' }}>{error}</p>}
           <button type="submit" style={buttonStyle} disabled={loading}>
-            {loading ? "Processing..." : (isRegisterMode ? "Register" : "Login")}
+            {loading ? "Processing..." : isRegisterMode ? "Register" : "Login"}
           </button>
           <button
             type="button"

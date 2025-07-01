@@ -1,31 +1,17 @@
-export default {
-  ignores: [
-    'node_modules/**',
-    'dist/**',
-    '.next/**',
-    'build/**',
-    'coverage/**',
-    '*.config.js',
-    '*.config.ts',
-    '*.config.mjs',
-  ],
-  env: {
-    browser: true,
-    es2021: true,
-    node: true,
+// eslint.config.js (Flat Config)
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+
+export default [
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    languageOptions: {
+      parser: tseslint.parser,
+    },
+    rules: {
+      "react/prop-types": "off",
+    },
   },
-  extends: [
-    'eslint:recommended',
-    'plugin:react/recommended',
-    'plugin:@typescript-eslint/recommended',
-  ],
-  parser: '@typescript-eslint/parser',
-  parserOptions: {
-    ecmaVersion: 12,
-    sourceType: 'module',
-  },
-  plugins: ['react', '@typescript-eslint'],
-  rules: {
-    'react/prop-types': 'off',
-  },
-};
+];
