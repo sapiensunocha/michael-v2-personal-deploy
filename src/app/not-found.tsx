@@ -1,8 +1,14 @@
 "use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+
+const transitionBase = {
+  duration: 0.6,
+  ease: [0.42, 0, 0.58, 1] as const, // Valid cubic-bezier in TS
+};
 
 export default function NotFound() {
   const [isClient, setIsClient] = useState(false);
@@ -19,41 +25,29 @@ export default function NotFound() {
         staggerChildren: 0.15,
         delayChildren: 0.2,
         duration: 0.8,
-        ease: "easeOut",
+        ease: [0.42, 0, 0.58, 1] as const,
       },
     },
   };
 
   const itemVariants = {
-    hidden: { 
-      y: 30,
-      opacity: 0,
-      scale: 0.95,
-    },
+    hidden: { y: 30, opacity: 0, scale: 0.95 },
     visible: {
       y: 0,
       opacity: 1,
       scale: 1,
-      transition: {
-        duration: 0.6,
-        ease: [0.215, 0.610, 0.355, 1.000],
-      },
+      transition: transitionBase,
     },
   };
 
   const imageVariants = {
-    hidden: { 
-      scale: 0.85,
-      opacity: 0,
-      y: 20,
-    },
+    hidden: { scale: 0.85, opacity: 0, y: 20 },
     visible: {
       scale: 1,
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.8,
-        ease: "easeOut",
+        ...transitionBase,
         opacity: { duration: 1 },
       },
     },
@@ -61,20 +55,14 @@ export default function NotFound() {
 
   const buttonVariants = {
     initial: { scale: 1 },
-    hover: { 
+    hover: {
       scale: 1.03,
       y: -3,
-      transition: {
-        duration: 0.3,
-        ease: "easeOut",
-      },
+      transition: { duration: 0.3, ease: [0.42, 0, 0.58, 1] as const },
     },
-    tap: { 
+    tap: {
       scale: 0.97,
-      transition: {
-        duration: 0.15,
-        ease: "easeInOut",
-      },
+      transition: { duration: 0.15, ease: [0.42, 0, 0.58, 1] as const },
     },
   };
 
@@ -133,31 +121,28 @@ export default function NotFound() {
               The requested location or resource cannot be found. Please return to the command center for accurate disaster updates and information.
             </motion.p>
 
-            <motion.div
-              variants={itemVariants}
-              className="pt-2 md:pt-4"
-            >
+            <motion.div variants={itemVariants} className="pt-2 md:pt-4">
               <motion.div
                 variants={buttonVariants}
                 initial="initial"
                 whileHover="hover"
                 whileTap="tap"
               >
-                <Link 
-                  href="/" 
+                <Link
+                  href="/"
                   className="inline-flex items-center justify-center px-6 sm:px-8 py-2.5 sm:py-3 text-sm sm:text-base font-medium rounded-full shadow-lg text-white bg-gray-700 hover:bg-michael_dark_red_75 transition-colors duration-300 ease-in-out w-full sm:w-auto"
                 >
                   <span>Return to Command Center</span>
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    className="h-4 w-4 sm:h-5 sm:w-5 ml-2 flex-shrink-0" 
-                    viewBox="0 0 20 20" 
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 sm:h-5 sm:w-5 ml-2 flex-shrink-0"
+                    viewBox="0 0 20 20"
                     fill="currentColor"
                   >
-                    <path 
-                      fillRule="evenodd" 
-                      d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" 
-                      clipRule="evenodd" 
+                    <path
+                      fillRule="evenodd"
+                      d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z"
+                      clipRule="evenodd"
                     />
                   </svg>
                 </Link>
@@ -179,21 +164,21 @@ export default function NotFound() {
             </p>
 
             <div className="pt-2 md:pt-4">
-              <Link 
-                href="/" 
+              <Link
+                href="/"
                 className="inline-flex items-center justify-center px-6 sm:px-8 py-2.5 sm:py-3 text-sm sm:text-base font-medium rounded-full shadow-lg text-white bg-gray-700 hover:bg-michael_dark_red_75 transition-colors duration-300 ease-in-out w-full sm:w-auto"
               >
                 <span>Return to Command Center</span>
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  className="h-4 w-4 sm:h-5 sm:w-5 ml-2 flex-shrink-0" 
-                  viewBox="0 0 20 20" 
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 sm:h-5 sm:w-5 ml-2 flex-shrink-0"
+                  viewBox="0 0 20 20"
                   fill="currentColor"
                 >
-                  <path 
-                    fillRule="evenodd" 
-                    d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" 
-                    clipRule="evenodd" 
+                  <path
+                    fillRule="evenodd"
+                    d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z"
+                    clipRule="evenodd"
                   />
                 </svg>
               </Link>
