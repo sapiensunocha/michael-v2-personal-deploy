@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Firestore, collection, addDoc, query, orderBy, getDocs } from "firebase/firestore";
+import {
+  Firestore,
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  getDocs,
+} from "firebase/firestore";
 
 interface ChatMessage {
   id?: string;
@@ -10,7 +17,7 @@ interface ChatMessage {
 
 interface ChatPanelProps {
   db: Firestore | null;
-  userId: string | null; // Pass userId from MapComponent
+  userId: string | null;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
@@ -20,7 +27,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
 
   const appTextStyle: React.CSSProperties = {
-    fontFamily: ""Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif",
+    fontFamily: "Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif",
     color: "#E0E0E0",
     lineHeight: 1.6,
   };
@@ -42,7 +49,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
   const chatContainerStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
-    height: "calc(100% - 60px)", // Adjust height for input area
+    height: "calc(100% - 60px)",
     overflowY: "auto",
     padding: "10px",
     borderBottom: "1px solid #444",
@@ -65,8 +72,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
     color: "#E0E0E0",
     fontSize: "1em",
     outline: "none",
-    resize: "none", // Prevent vertical resizing by user
-    maxHeight: "100px", // Limit input height
+    resize: "none",
+    maxHeight: "100px",
     ...appTextStyle,
   };
 
@@ -83,35 +90,31 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
     ...appTextStyle,
   };
 
-  // Scroll to the latest message
   useEffect(() => {
     chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
 
-  // Load chat history from Firestore on component mount or user change
   useEffect(() => {
     const loadChatHistory = async () => {
-      if (!db || !userId) {
-        console.log("Firestore or userId not ready for chat history.");
-        return;
-      }
+      if (!db || !userId) return;
       try {
-        const chatCollectionRef = collection(db, `/artifacts/${__app_id}/users/${userId}/chatHistory`);
+        const chatCollectionRef = collection(
+          db,
+          `users/${userId}/chatHistory`,
+        );
         const q = query(chatCollectionRef, orderBy("timestamp", "asc"));
         const querySnapshot = await getDocs(q);
-        const loadedMessages: ChatMessage[] = querySnapshot.docs.map(doc => ({
+        const loadedMessages: ChatMessage[] = querySnapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data() as Omit<ChatMessage, "id"> // Ensure type safety
+          ...(doc.data() as Omit<ChatMessage, "id">),
         }));
         setChatHistory(loadedMessages);
-        console.log(`Loaded ${loadedMessages.length} chat messages for user ${userId}.`);
       } catch (error) {
         console.error("Failed to load chat history:", error);
       }
     };
     loadChatHistory();
   }, [db, userId]);
-
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,28 +131,32 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
     setChatHistory(newChatHistory);
     setInputMessage("");
 
-    // Save user message to Firestore
     try {
-      const chatCollectionRef = collection(db, `/artifacts/${__app_id}/users/${userId}/chatHistory`);
+      const chatCollectionRef = collection(
+        db,
+        `users/${userId}/chatHistory`,
+      );
       await addDoc(chatCollectionRef, userMessage);
     } catch (firestoreError) {
-      console.error("Failed to save user message to Firestore:", firestoreError);
+      console.error("Failed to save user message:", firestoreError);
     }
 
     try {
-      // Prepare chat history for LLM API call
-      let chatHistoryForApi = newChatHistory.map(msg => ({
+      const chatHistoryForApi = newChatHistory.map((msg) => ({
         role: msg.sender === "user" ? "user" : "model",
-        parts: [{ text: msg.message }]
+        parts: [{ text: msg.message }],
       }));
 
-      // Add a system prompt for context and safety
       const systemPrompt = {
         role: "system",
-        parts: [{ text: `You are an AI Disaster Assistant from Michael App by the World Disaster Center. Your purpose is to provide helpful, concise, and accurate advice on disaster preparedness, response, and recovery. You can also teach about various disaster types. Keep responses user-friendly and avoid overly technical jargon. If asked for real-time SOS routes or real-time location-based advice, state that you are an AI model and cannot provide real-time assistance or direct emergency services, but can offer general guidance. Do NOT provide medical advice.` }]
+        parts: [
+          {
+            text:
+              "You are an AI Disaster Assistant from Michael App by the World Disaster Center. Your purpose is to provide helpful, concise, and accurate advice on disaster preparedness, response, and recovery. You can also teach about various disaster types. Keep responses user-friendly and avoid overly technical jargon. If asked for real-time SOS routes or real-time location-based advice, state that you are an AI model and cannot provide real-time assistance or direct emergency services, but can offer general guidance. Do NOT provide medical advice.",
+          },
+        ],
       };
 
-      // Construct the payload for the Gemini API
       const payload = {
         contents: [systemPrompt, ...chatHistoryForApi],
         generationConfig: {
@@ -157,34 +164,31 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 500,
-        }
+        },
       };
 
-      const apiKey = ""; // Canvas will provide this at runtime
+      const apiKey = "";
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        throw new Error(`Gemini API HTTP error! Status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const result = await response.json();
-      let aiMessageContent = "I"m sorry, I couldn"t generate a response at this time. Please try again.";
 
-      if (result.candidates && result.candidates.length > 0 &&
-          result.candidates[0].content && result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0) {
+      let aiMessageContent =
+        "I'm sorry, I couldn't generate a response at this time. Please try again.";
+
+      if (
+        result.candidates?.[0]?.content?.parts?.[0]?.text
+      ) {
         aiMessageContent = result.candidates[0].content.parts[0].text;
-      } else {
-        console.warn("Gemini API returned an unexpected structure or no content:", result);
-        if (result.error && result.error.message) {
-          aiMessageContent = `Error from AI: ${result.error.message}`;
-        }
+      } else if (result.error?.message) {
+        aiMessageContent = `Error from AI: ${result.error.message}`;
       }
 
       const aiMessage: ChatMessage = {
@@ -192,21 +196,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
         message: aiMessageContent,
         timestamp: Date.now(),
       };
+
       setChatHistory((prev) => [...prev, aiMessage]);
 
-      // Save AI message to Firestore
       try {
-        const chatCollectionRef = collection(db, `/artifacts/${__app_id}/users/${userId}/chatHistory`);
+        const chatCollectionRef = collection(
+          db,
+          `users/${userId}/chatHistory`,
+        );
         await addDoc(chatCollectionRef, aiMessage);
       } catch (firestoreError) {
-        console.error("Failed to save AI message to Firestore:", firestoreError);
+        console.error("Failed to save AI message:", firestoreError);
       }
-
     } catch (apiError: any) {
-      console.error("Error calling Gemini API:", apiError);
       const errorMessage: ChatMessage = {
         sender: "ai",
-        message: `Oops! I encountered an error: ${apiError.message}. Please try again later.`,
+        message: `Oops! I encountered an error: ${apiError.message}`,
         timestamp: Date.now(),
       };
       setChatHistory((prev) => [...prev, errorMessage]);
@@ -214,7 +219,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
       setIsLoading(false);
     }
   };
-
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", ...appTextStyle }}>
@@ -231,7 +235,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
           ))
         )}
         {isLoading && (
-          <div style={{ alignSelf: "flex-start", padding: "10px 15px", borderRadius: "15px", backgroundColor: "#555", color: "#E0E0E0", marginBottom: "10px" }}>
+          <div
+            style={{
+              alignSelf: "flex-start",
+              padding: "10px 15px",
+              borderRadius: "15px",
+              backgroundColor: "#555",
+              color: "#E0E0E0",
+              marginBottom: "10px",
+            }}
+          >
             AI is typing...
           </div>
         )}
@@ -251,13 +264,28 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ db, userId }) => {
             }
           }}
           aria-label="Chat input"
-          disabled={!db || !userId} // Disable if Firebase is not ready
+          disabled={!db || !userId}
         />
-        <button type="submit" style={sendButtonStyle} disabled={isLoading || !db || !userId}>
+        <button
+          type="submit"
+          style={sendButtonStyle}
+          disabled={isLoading || !db || !userId}
+        >
           Send
         </button>
       </form>
-      {!userId && <p style={{ color: "#ffc107", textAlign: "center", padding: "5px", fontSize: "0.8em" }}>Login to save chat history.</p>}
+      {!userId && (
+        <p
+          style={{
+            color: "#ffc107",
+            textAlign: "center",
+            padding: "5px",
+            fontSize: "0.8em",
+          }}
+        >
+          Login to save chat history.
+        </p>
+      )}
     </div>
   );
 };
