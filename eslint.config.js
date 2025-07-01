@@ -1,5 +1,3 @@
-import { ignores } from 'eslint-config';
-
 export default {
   ignores: [
     'node_modules/**',
