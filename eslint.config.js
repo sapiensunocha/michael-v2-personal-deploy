@@ -1,6 +1,6 @@
-const { ignores } = require('eslint-config');
+import { ignores } from 'eslint-config';
 
-module.exports = {
+export default {
   ignores: [
     'node_modules/**',
     'dist/**',

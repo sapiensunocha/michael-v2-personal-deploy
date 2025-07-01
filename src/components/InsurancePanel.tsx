@@ -30,7 +30,7 @@ const InsurancePanel: React.FC<InsurancePanelProps> = ({ db, userId }) => {
     padding: '12px 20px',
     borderRadius: '6px',
     border: 'none',
-    backgroundColor: isSubscribedToGDIF ? '#dc3545' : '#28a745', // Red for unsubscribe, green for subscribe
+    backgroundColor: isSubscribedToGDIF ? '#dc3545' : '#28a745',
     color: 'white',
     cursor: 'pointer',
     fontWeight: '600',
@@ -48,7 +48,7 @@ const InsurancePanel: React.FC<InsurancePanelProps> = ({ db, userId }) => {
       }
       setLoadingSubscription(true);
       try {
-        const docRef = doc(db, `/artifacts/${__app_id}/users/${userId}/gdifSubscriptions/subscriptionStatus`);
+        const docRef = doc(db, `/artifacts/${process.env.NEXT_PUBLIC_FIREBASE_APP_ID}/users/${userId}/gdifSubscriptions/subscriptionStatus`);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setIsSubscribedToGDIF(docSnap.data().isSubscribed || false);
@@ -77,7 +77,7 @@ const InsurancePanel: React.FC<InsurancePanelProps> = ({ db, userId }) => {
     const newSubscriptionStatus = !isSubscribedToGDIF;
 
     try {
-      const docRef = doc(db, `/artifacts/${__app_id}/users/${userId}/gdifSubscriptions/subscriptionStatus`);
+      const docRef = doc(db, `/artifacts/${process.env.NEXT_PUBLIC_FIREBASE_APP_ID}/users/${userId}/gdifSubscriptions/subscriptionStatus`);
       await setDoc(docRef, { isSubscribed: newSubscriptionStatus, lastUpdated: new Date().toISOString() }, { merge: true });
       setIsSubscribedToGDIF(newSubscriptionStatus);
       alert(`You have successfully ${newSubscriptionStatus ? 'subscribed to' : 'unsubscribed from'} GDIF!`);
@@ -103,10 +103,10 @@ const InsurancePanel: React.FC<InsurancePanelProps> = ({ db, userId }) => {
       <div style={sectionStyle}>
         <h3 style={{ color: "#E0E0E0", marginBottom: "10px" }}>How GDIF Works:</h3>
         <ul style={{ listStyleType: 'disc', marginLeft: '20px', fontSize: '0.9em' }}>
-          <li>**Pre-financed Liquidity:** Funds are ready *before* disaster strikes.</li>
-          <li>**Parametric Triggers:** Payouts are automatic based on pre-defined, measurable event thresholds (e.g., hurricane wind speed, drought severity).</li>
-          <li>**Multi-Layered Coverage:** Protects nations, regions, and even individual households.</li>
-          <li>**Faster Than Aid:** Delivers funds 3-4 times faster than traditional humanitarian aid.</li>
+          <li><strong>Pre-financed Liquidity:</strong> Funds are ready <em>before</em> disaster strikes.</li>
+          <li><strong>Parametric Triggers:</strong> Payouts are automatic based on pre-defined, measurable event thresholds (e.g., hurricane wind speed, drought severity).</li>
+          <li><strong>Multi-Layered Coverage:</strong> Protects nations, regions, and even individual households.</li>
+          <li><strong>Faster Than Aid:</strong> Delivers funds 3-4 times faster than traditional humanitarian aid.</li>
         </ul>
       </div>
 
@@ -134,7 +134,7 @@ const InsurancePanel: React.FC<InsurancePanelProps> = ({ db, userId }) => {
               {isSubscribedToGDIF ? "Unsubscribe from GDIF (Simulated)" : "Subscribe to GDIF (Simulated Payment)"}
             </button>
             <p style={{ fontSize: "0.8em", color: "#ffc107", marginTop: "10px", textAlign: "center" }}>
-              * **IMPORTANT:** This is a simulated subscription within the app. Actual payment processing via Stripe requires a secure backend server, which is beyond the scope of this client-side environment.
+              * <strong>IMPORTANT:</strong> This is a simulated subscription within the app. Actual payment processing via Stripe requires a secure backend server, which is beyond the scope of this client-side environment.
             </p>
             {subscriptionError && <p style={{ color: '#dc3545', fontSize: '0.9em', marginTop: '10px', textAlign: 'center' }}>{subscriptionError}</p>}
             {!userId && <p style={{ color: '#ffc107', textAlign: 'center', padding: '5px', fontSize: '0.8em' }}>Login to save your GDIF subscription status.</p>}
