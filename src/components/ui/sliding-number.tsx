@@ -1,13 +1,19 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
-import { type MotionValue, motion, useSpring, useTransform, motionValue } from "framer-motion";
+// --- CHANGE START ---
+// Explicitly import 'Transition' type from 'framer-motion'
+import { type MotionValue, motion, useSpring, useTransform, motionValue, type Transition } from "framer-motion";
+// --- CHANGE END ---
 
-const TRANSITION = {
+// --- CHANGE START ---
+// Apply the imported 'Transition' type to your TRANSITION constant
+const TRANSITION: Transition = {
   type: "spring",
   stiffness: 280,
   damping: 18,
   mass: 0.3,
 };
+// --- CHANGE END ---
 
 function Digit({ value, place }: { value: number; place: number }) {
   const valueRoundedToPlace = Math.floor(value / place) % 10;

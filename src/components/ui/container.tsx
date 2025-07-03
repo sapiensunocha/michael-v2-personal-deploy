@@ -5,9 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { 
+import {
   BiHelpCircle,
-  // BiGridAlt, 
+  // BiGridAlt,
   BiMenu,
   BiX,
 } from "react-icons/bi";
@@ -24,7 +24,7 @@ import { useFetchCurrentUserProfile } from "@/hooks/useFetchCurrentUserProfile";
 import { logout } from "@/lib/session";
 import { useQueryClient } from "@tanstack/react-query";
 import { startTransition, useActionState } from "react";
-import { Rss } from "lucide-react";
+import { Rss } from "lucide-react"; // Rss is from lucide-react
 
 // Main Navigation Items
 const mainNavItems = [
@@ -46,7 +46,7 @@ const mainNavItems = [
   {
     title: " Disaster Trends",
     url: "/feedback",
-    icon: Rss,
+    icon: Rss, // This is the icon causing the type issue
   },
 ];
 
@@ -61,10 +61,10 @@ interface AppModalsProps {
 }
 
 // Modals Component
-const AppModals = ({ 
-  isAboutModalOpen, 
-  setIsAboutModalOpen, 
-  isLogoutModalOpen, 
+const AppModals = ({
+  isAboutModalOpen,
+  setIsAboutModalOpen,
+  isLogoutModalOpen,
   setIsLogoutModalOpen,
   handleConfirmAbout,
   handleConfirmLogout,
@@ -79,15 +79,15 @@ const AppModals = ({
               <FiLogOut size={48} className="mx-auto text-red-500 mb-4" />
               <h2 className="text-xl font-semibold mb-4">Logout Confirmation</h2>
               <p className="text-gray-600 mb-6">Are you sure you want to logout?</p>
-              
+
               <div className="flex justify-center space-x-4">
-                <button 
+                <button
                   onClick={() => setIsLogoutModalOpen(false)}
                   className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleConfirmLogout}
                   className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
                 >
@@ -107,15 +107,15 @@ const AppModals = ({
               <BiHelpCircle size={48} className="mx-auto text-gray-500 mb-4" />
               <h2 className="text-xl font-semibold mb-4">Leave Micheal App?</h2>
               <p className="text-gray-600 mb-6">You are about to visit the World Disaster Center website. Do you wish to continue?</p>
-              
+
               <div className="flex justify-center space-x-4">
-                <button 
+                <button
                   onClick={() => setIsAboutModalOpen(false)}
                   className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
                 >
                   Stay on Micheal
                 </button>
-                <button 
+                <button
                   onClick={handleConfirmAbout}
                   className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition"
                 >
@@ -194,7 +194,10 @@ const AppSidebar = () => {
   interface NavItem {
     title: string;
     url: string;
-    icon: React.ComponentType<{ size: number }>;
+    // --- THIS IS THE CRUCIAL CHANGE ---
+    // Make the icon type more flexible to accept any React component,
+    // especially since you are mixing react-icons and lucide-react.
+    icon: React.ComponentType<any>; // Changed from { size: number } to any for broader compatibility
     external?: boolean;
   }
 
@@ -213,6 +216,7 @@ const AppSidebar = () => {
             path === item.url ? "bg-gray-200" : "",
           )}
         >
+          {/* When rendering the icon, ensure you pass common props like 'size' */}
           <item.icon size={20} />
           <span>{item.title}</span>
         </Link>
@@ -223,7 +227,7 @@ const AppSidebar = () => {
   return (
     <>
       {/* Mobile Hamburger Button */}
-      <button 
+      <button
         className="fixed top-4 left-4 z-50 md:hidden"
         onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
       >
@@ -231,12 +235,12 @@ const AppSidebar = () => {
       </button>
 
       {/* Sidebar for Desktop and Mobile */}
-      <div 
+      <div
         className={cn(
           "w-64 bg-white border-r h-screen flex flex-col fixed md:static z-40",
           "transform transition-transform duration-300 ease-in-out",
-          isMobileSidebarOpen 
-            ? "translate-x-0" 
+          isMobileSidebarOpen
+            ? "translate-x-0"
             : "-translate-x-full md:translate-x-0",
         )}
       >
@@ -257,7 +261,7 @@ const AppSidebar = () => {
 
         {/* User Profile Section */}
         <div className="mt-auto p-4 border-t">
-          <button 
+          <button
             onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
             className="w-full flex items-center gap-3 p-3 bg-gray-100 rounded-lg"
           >
@@ -276,8 +280,8 @@ const AppSidebar = () => {
             <div className="mt-2 bg-white shadow-lg rounded-lg">
               <ul className="py-1">
                 {/* <li>
-                  <Link 
-                    href="/profile" 
+                  <Link
+                    href="/profile"
                     className="flex items-center gap-3 p-3 hover:bg-gray-100"
                   >
                     <CiUser size={20} />
@@ -285,8 +289,8 @@ const AppSidebar = () => {
                   </Link>
                 </li> */}
                 {/* <li>
-                  <Link 
-                    href="/settings" 
+                  <Link
+                    href="/settings"
                     className="flex items-center gap-3 p-3 hover:bg-gray-100"
                   >
                     <CiSettings size={20} />
@@ -294,8 +298,8 @@ const AppSidebar = () => {
                   </Link>
                 </li> */}
                 <li>
-                  <Link 
-                    href="/notifications" 
+                  <Link
+                    href="/notifications"
                     className="flex items-center gap-3 p-3 hover:bg-gray-100"
                   >
                     <MdNotificationsNone size={20} />
@@ -303,7 +307,7 @@ const AppSidebar = () => {
                   </Link>
                 </li>
                 <li>
-                  <button 
+                  <button
                     onClick={handleAboutClick}
                     className="w-full text-left flex items-center gap-3 p-3 hover:bg-gray-100"
                   >
@@ -312,7 +316,7 @@ const AppSidebar = () => {
                   </button>
                 </li>
                 <li>
-                  <button 
+                  <button
                     onClick={handleLogoutClick}
                     className="w-full text-left flex items-center gap-3 p-3 hover:bg-gray-100 text-red-600"
                   >
@@ -328,14 +332,14 @@ const AppSidebar = () => {
 
       {/* Overlay for Mobile Sidebar */}
       {isMobileSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
           onClick={() => setIsMobileSidebarOpen(false)}
         />
       )}
 
       {/* Modals */}
-      <AppModals 
+      <AppModals
         isAboutModalOpen={isAboutModalOpen}
         setIsAboutModalOpen={setIsAboutModalOpen}
         isLogoutModalOpen={isLogoutModalOpen}
@@ -345,7 +349,7 @@ const AppSidebar = () => {
       />
     </>
   );
-};
+}
 
 // Container Component
 export default function Container({ children }: { children: React.ReactNode }) {
