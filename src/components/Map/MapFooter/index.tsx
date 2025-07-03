@@ -57,7 +57,7 @@ interface MapFooterProps {
 
 const MapFooter = ({ onMapTypeChange, onCategorySelect }: MapFooterProps) => {
   const searchParams = useSearchParams();
-  const category = searchParams.get("category");
+  const category = searchParams?.get("category") ?? "all";
 
   const [chatOpen, setChatOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,18 +69,13 @@ const MapFooter = ({ onMapTypeChange, onCategorySelect }: MapFooterProps) => {
   };
 
   const { data: conflictData, isFetching: conflictLoading } = useConflictData();
-  const { data: volcanoesData, isFetching: volcanoesLoading } =
-    useVolcanoesData();
-  const { data: wildfiresData, isFetching: wildfiresLoading } =
-    useWildfiresData();
-  const { data: earthquakesData, isFetching: earthquakesLoading } =
-    useEarthquakesData();
+  const { data: volcanoesData, isFetching: volcanoesLoading } = useVolcanoesData();
+  const { data: wildfiresData, isFetching: wildfiresLoading } = useWildfiresData();
+  const { data: earthquakesData, isFetching: earthquakesLoading } = useEarthquakesData();
   const { data: droughtData, isFetching: droughtLoading } = useDroughtData();
   const { data: floodData, isFetching: floodLoading } = useFloodData();
-  const { data: technologicalData, isFetching: technologicalLoading } =
-    useTechnologicalData();
-  const { data: tropicalCycloneData, isFetching: tropicalCycloneLoading } =
-    useTropicalCycloneData();
+  const { data: technologicalData, isFetching: technologicalLoading } = useTechnologicalData();
+  const { data: tropicalCycloneData, isFetching: tropicalCycloneLoading } = useTropicalCycloneData();
 
   const {
     data: conflictDevelopmentData,
@@ -227,6 +222,7 @@ const MapFooter = ({ onMapTypeChange, onCategorySelect }: MapFooterProps) => {
     },
     [],
   );
+
   const router = useRouter();
 
   const handleCategoryClick = (categoryId: string) => {
@@ -253,12 +249,12 @@ const MapFooter = ({ onMapTypeChange, onCategorySelect }: MapFooterProps) => {
   return (
     <div className="fixed bottom-0 w-full">
       <div className="w-fit mx-auto md:px-4 flex items-center justify-center">
-        <div className="flex md:gap-4 gap-2  mx-2 my-10">
+        <div className="flex md:gap-4 gap-2 mx-2 my-10">
           <button
             onClick={toggleChat}
             className="flex items-center justify-center bg-whitemd:h-[50px] md:w-[50px] h-8 w-8 rounded-full border-gray-300 shadow-lg hover:text-red-700 transition-all duration-400"
           >
-            <RiChatSmileAiFill />{" "}
+            <RiChatSmileAiFill />
           </button>
 
           <button
