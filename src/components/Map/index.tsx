@@ -713,7 +713,7 @@ const MapComponent: React.FC<MapProps> = ({ data }) => {
     if (typeLower.includes("earthquake")) iconUrl = "/icons/earthquake.png";
     else if (typeLower.includes("flood")) iconUrl = "/icons/flood.png";
     else if (typeLower.includes("tropical cyclone")) iconUrl = "/icons/cyclone1.png";
-    else if (typeLower.includes("wildfire")) iconUrl = "/icons/wildfire.png";
+    else if (typeLower.includes("wildfire")) iconUrl = "/icons/fire.png";
     else if (typeLower.includes("drought")) iconUrl = "/icons/drought.png";
     else if (typeLower.includes("violence") || typeLower.includes("battles")) iconUrl = "/icons/politic1.png";
     else if (typeLower.includes("protests") || typeLower.includes("demonstration") || typeLower.includes("riots")) iconUrl = "/icons/demonstration.png";
@@ -1061,7 +1061,7 @@ const MapComponent: React.FC<MapProps> = ({ data }) => {
               <span>Tropical Cyclone</span>
             </LegendItem>
             <LegendItem selected={selectedDisasterType === "wildfire"} onClick={() => handleSelectDisasterType("wildfire")}>
-              <Image src="/icons/wildfire.png" alt="Wildfire" width={20} height={20} />
+              <Image src="/icons/fire.png" alt="Wildfire" width={20} height={20} />
               <span>Wildfire</span>
             </LegendItem>
             <LegendItem selected={selectedDisasterType === "drought"} onClick={() => handleSelectDisasterType("drought")}>
