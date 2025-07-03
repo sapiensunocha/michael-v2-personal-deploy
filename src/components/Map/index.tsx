@@ -569,7 +569,7 @@ const MapComponent: React.FC<MapProps> = ({ data }) => {
     return (
       <div style={{
         position: "absolute",
-        top: isMobile ? SPACING.xl : "80px",
+        bottom: isMobile ? SPACING.md : "80px", // Moved to bottom-right for mobile
         right: SPACING.md,
         zIndex: 1000,
         display: "flex",

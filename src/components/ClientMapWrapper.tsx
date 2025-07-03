@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image"; // Use next/image instead of img for better optimization
 import { DisasterEvent } from "@/types";
 
 interface MapProps {
@@ -26,16 +27,16 @@ const ClientMapWrapper: React.FC<ClientMapWrapperProps> = ({ initialData }) => {
 
   return (
     <div style={{ height: "100vh", width: "100vw", position: "relative" }}>
-      <img
+      <Image
         src="/icons/logoMichael.png"
         alt="Logo"
+        width={50}
+        height={50} // Adjusted to maintain aspect ratio
         style={{
           position: "absolute",
           top: 16,
           left: 16,
           zIndex: 1000,
-          width: "50px",
-          height: "auto",
         }}
       />
       <MapComponent data={disasterData} />

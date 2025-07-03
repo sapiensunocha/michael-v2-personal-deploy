@@ -43,7 +43,7 @@ export default async function Page() {
   const recentData = await fetchEarthquakeData();
 
   return (
-    <div style={{ height: "100vh", width: "100vw" }}>
+    <div style={{ height: "100vh", width: "100vw", position: "relative" }}>
       <MapClientDynamic initialData={recentData} />
     </div>
   );
