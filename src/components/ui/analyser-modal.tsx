@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+ 
 "use client";
 import { CheckCircle, Circle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";

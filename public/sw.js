@@ -1,4 +1,4 @@
-/* eslint-disable */
+ 
 if (!self.define) {
   let e,
     a = {};

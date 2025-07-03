@@ -1,11 +1,11 @@
 // src/app/test-map_old/page.tsx
 import React from "react";
 
-// eslint-disable-next-line no-console
+ 
 // console.log("--- Server: test-map/page.tsx (top-level execution) ---");
 
 const TestMapPage = () => {
-  // eslint-disable-next-line no-console
+   
   // console.log("--- Server: TestMapPage component function entered ---");
   return (
     <div>
@@ -17,5 +17,5 @@ const TestMapPage = () => {
 
 export default TestMapPage;
 
-// eslint-disable-next-line no-console
+ 
 // console.log("--- Server: test-map/page.tsx (after component export) ---");

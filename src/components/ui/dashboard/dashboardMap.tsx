@@ -348,7 +348,7 @@ const Map = () => {
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const [tooltipPosition, setTooltipPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [tooltipContent, setTooltipContent] = useState<any>(null);
-  // eslint-disable-next-line no-undef
+   
   const mapRef = useRef<google.maps.Map | null>(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
